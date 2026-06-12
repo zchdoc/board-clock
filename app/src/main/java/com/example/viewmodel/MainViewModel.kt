@@ -79,6 +79,28 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
 
     // Voice recognition states
+    private val _voiceControlEnabled = MutableStateFlow(prefs.getBoolean("voice_control_enabled", true))
+    val voiceControlEnabled: StateFlow<Boolean> = _voiceControlEnabled.asStateFlow()
+
+    fun setVoiceControlEnabled(enabled: Boolean) {
+        _voiceControlEnabled.value = enabled
+        prefs.edit().putBoolean("voice_control_enabled", enabled).apply()
+        if (!enabled) {
+            _voiceState.value = VoiceState.Idle
+            if (_isEnglish.value) {
+                _lastActionLog.value = "Voice control is disabled."
+            } else {
+                _lastActionLog.value = "语音控制已关闭 (后台监听已释放)"
+            }
+        } else {
+            if (_isEnglish.value) {
+                _lastActionLog.value = "Voice listener ready."
+            } else {
+                _lastActionLog.value = "声学拾音识别引擎已就绪..."
+            }
+        }
+    }
+
     private val _voiceState = MutableStateFlow<VoiceState>(VoiceState.Idle)
     val voiceState: StateFlow<VoiceState> = _voiceState.asStateFlow()
 

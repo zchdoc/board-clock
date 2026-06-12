@@ -113,7 +113,7 @@ fun getLocalizedText(isEnglish: Boolean, key: String): String {
         "app_mappings" to if (isEnglish) "Command Links [0-9]" else "指令链接绑定 [0-9]",
         "hw_detect" to if (isEnglish) "Hardware Sensors" else "感知传感器检测",
         "sys_detect" to if (isEnglish) "Android System API" else "系统SDK规格检测",
-        "timezone" to if (isEnglish) "Local Timezone" else "华夏标准时间/工业显示器校色",
+        "timezone" to if (isEnglish) "Timezone: ${java.util.TimeZone.getDefault().id}" else "设备时区: ${java.util.TimeZone.getDefault().id}",
         "voice_status" to if (isEnglish) "Voice Recognizer Engine" else "声学拾音识别引擎",
         "start_voice" to if (isEnglish) "Listen" else "启动监听",
         "stop_voice" to if (isEnglish) "Mute" else "阻断静口",
@@ -141,6 +141,7 @@ fun DashboardScreen(
     val videoUriStr by viewModel.videoUri.collectAsStateWithLifecycle()
     val clockColorInt by viewModel.clockColor.collectAsStateWithLifecycle()
     val dateColorInt by viewModel.dateColor.collectAsStateWithLifecycle()
+    val voiceControlEnabled by viewModel.voiceControlEnabled.collectAsStateWithLifecycle()
 
     val colors = if (isDarkMode) DarkThemeColors else LightThemeColors
     val clockColor = if (clockColorInt != 0) Color(clockColorInt) else colors.accent
@@ -521,6 +522,8 @@ fun DashboardScreen(
                                 onSaveClockColor = { viewModel.setClockColor(it) },
                                 selectedDateColor = dateColorInt,
                                 onSaveDateColor = { viewModel.setDateColor(it) },
+                                voiceControlEnabled = voiceControlEnabled,
+                                onToggleVoiceControl = { viewModel.setVoiceControlEnabled(it) },
                                 onDismiss = { showTimeDialog = false }
                             )
                         }
@@ -593,7 +596,16 @@ fun DashboardScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             ClockInfoCard(timeStr, dateStr, weekStr, colors, isEnglish, clockColor = clockColor, dateColor = dateColor)
-                            VoiceControlCard(voiceState, actionLog, rmsLevel, colors, isEnglish, onToggleVoice)
+                            VoiceControlCard(
+                                voiceState = voiceState,
+                                actionLog = actionLog,
+                                rmsLevel = rmsLevel,
+                                colors = colors,
+                                isEnglish = isEnglish,
+                                voiceControlEnabled = voiceControlEnabled,
+                                onToggleVoice = onToggleVoice,
+                                onToggleVoiceControl = { viewModel.setVoiceControlEnabled(it) }
+                            )
                         }
 
                         // Right Pane: Control Tabs with binding, hardware info, system specs
@@ -613,7 +625,15 @@ fun DashboardScreen(
                     ) {
                         // Stacking clock and voice level analyzer compactly as two separate columns/rows
                         ClockInfoCard(timeStr, dateStr, weekStr, colors, isEnglish, clockColor = clockColor, dateColor = dateColor)
-                        VoiceControlCompactCard(voiceState, actionLog, colors, isEnglish, onToggleVoice)
+                        VoiceControlCompactCard(
+                            voiceState = voiceState,
+                            actionLog = actionLog,
+                            colors = colors,
+                            isEnglish = isEnglish,
+                            voiceControlEnabled = voiceControlEnabled,
+                            onToggleVoice = onToggleVoice,
+                            onToggleVoiceControl = { viewModel.setVoiceControlEnabled(it) }
+                        )
 
                         // Bottom Workspace Tabs filling up the remaining room
                         TabsContainerCard(
@@ -721,7 +741,9 @@ fun VoiceControlCard(
     rmsLevel: Float,
     colors: ThemeColors,
     isEnglish: Boolean,
-    onToggleVoice: (Boolean) -> Unit
+    voiceControlEnabled: Boolean,
+    onToggleVoice: (Boolean) -> Unit,
+    onToggleVoiceControl: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -734,12 +756,33 @@ fun VoiceControlCard(
                 .fillMaxSize()
                 .padding(14.dp)
         ) {
-            Text(
-                text = getLocalizedText(isEnglish, "voice_status"),
-                color = colors.textPrimary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = getLocalizedText(isEnglish, "voice_status"),
+                    color = colors.textPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                if (!voiceControlEnabled) {
+                    Box(
+                        modifier = Modifier
+                            .background(colors.success.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    ) {
+                        Text(
+                            text = if (isEnglish) "Power Saved" else "极速省电中",
+                            color = colors.success,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -757,18 +800,24 @@ fun VoiceControlCard(
                                 .size(8.dp)
                                 .clip(CircleShape)
                                 .background(
-                                    if (voiceState is VoiceState.Listening) colors.success else colors.accentSecondary
+                                    if (!voiceControlEnabled) Color.Gray
+                                    else if (voiceState is VoiceState.Listening) colors.success 
+                                    else colors.accentSecondary
                                 )
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = when (voiceState) {
-                                is VoiceState.Idle -> if (isEnglish) "Microphone Idle" else "话筒休眠中"
-                                is VoiceState.Listening -> if (isEnglish) "Listening • Say \"Open X\"" else "话筒持续监听中 • 唤醒词 [打开 X]"
-                                is VoiceState.PartialText -> if (isEnglish) "Converting speech..." else "抓包音波转换中"
-                                is VoiceState.Success -> if (isEnglish) "Match Succeeded" else "匹配成功"
-                                is VoiceState.Ready -> if (isEnglish) "Waiting for input..." else "等待声音输入"
-                                is VoiceState.Error -> if (isEnglish) "Muted / Error" else "监听出错已静默"
+                            text = if (!voiceControlEnabled) {
+                                if (isEnglish) "Microphone Idle (Power Saving)" else "麦克风已闭锁关停 (省电中)"
+                            } else {
+                                when (voiceState) {
+                                    is VoiceState.Idle -> if (isEnglish) "Microphone Idle" else "话筒休眠中"
+                                    is VoiceState.Listening -> if (isEnglish) "Listening • Say \"Open X\"" else "话筒持续监听中 • 唤醒词 [打开 X]"
+                                    is VoiceState.PartialText -> if (isEnglish) "Converting speech..." else "抓包音波转换中"
+                                    is VoiceState.Success -> if (isEnglish) "Match Succeeded" else "匹配成功"
+                                    is VoiceState.Ready -> if (isEnglish) "Waiting for input..." else "等待声音输入"
+                                    is VoiceState.Error -> if (isEnglish) "Muted / Error" else "监听出错已静默"
+                                }
                             },
                             color = colors.textSecondary,
                             fontSize = 11.sp,
@@ -779,8 +828,12 @@ fun VoiceControlCard(
                     Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
-                        text = actionLog,
-                        color = getVoiceLogColor(voiceState),
+                        text = if (!voiceControlEnabled) {
+                            if (isEnglish) "Voice features are turned off. Enable to listen." else "语音后台拾音已全部断开，轻触下方一键开启"
+                        } else {
+                            actionLog
+                        },
+                        color = if (!voiceControlEnabled) colors.textSecondary.copy(alpha = 0.5f) else getVoiceLogColor(voiceState),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -805,10 +858,26 @@ fun VoiceControlCard(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    RmsWaveIndicator(rmsLevel = rmsLevel, state = voiceState)
+                    if (voiceControlEnabled) {
+                        RmsWaveIndicator(rmsLevel = rmsLevel, state = voiceState)
+                    } else {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            repeat(7) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = 3.dp, height = 4.dp)
+                                        .clip(CircleShape)
+                                        .background(colors.textSecondary.copy(alpha = 0.2f))
+                                )
+                            }
+                        }
+                    }
                     Spacer(modifier = Modifier.height(6.dp))
                     Text(
-                        text = "Rms: ${String.format("%.1f", rmsLevel)} dB",
+                        text = if (voiceControlEnabled) "Rms: ${String.format("%.1f", rmsLevel)} dB" else "Offline / 0.0 dB",
                         color = colors.textSecondary.copy(alpha = 0.5f),
                         fontSize = 10.sp,
                         fontFamily = FontFamily.Monospace
@@ -819,41 +888,64 @@ fun VoiceControlCard(
             Spacer(modifier = Modifier.height(8.dp))
 
             // Quick restart buttons inside card bottom
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Button(
-                    onClick = { onToggleVoice(true) },
-                    colors = ButtonDefaults.buttonColors(containerColor = colors.success),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.weight(1f)
+            if (voiceControlEnabled) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "start",
-                        tint = Color.Black,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(getLocalizedText(isEnglish, "start_voice"), fontSize = 11.sp, color = Color.Black)
-                }
+                    Button(
+                        onClick = { onToggleVoice(true) },
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.success),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "start",
+                            tint = Color.Black,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(getLocalizedText(isEnglish, "start_voice"), fontSize = 11.sp, color = Color.Black)
+                    }
 
-                OutlinedButton(
-                    onClick = { onToggleVoice(false) },
+                    OutlinedButton(
+                        onClick = { onToggleVoice(false) },
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
+                        border = BoxBorder(borderColor = Color.Red.copy(alpha = 0.3f)),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "stop",
+                            tint = Color.Red,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(getLocalizedText(isEnglish, "stop_voice"), fontSize = 11.sp, color = Color.Red)
+                    }
+                }
+            } else {
+                Button(
+                    onClick = { onToggleVoiceControl(true) },
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
                     shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.Red),
-                    border = BoxBorder(borderColor = Color.Red.copy(alpha = 0.3f)),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "stop",
-                        tint = Color.Red,
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "enable voice control",
+                        tint = if (colors.isDark) Color.Black else Color.White,
                         modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(getLocalizedText(isEnglish, "stop_voice"), fontSize = 11.sp, color = Color.Red)
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isEnglish) "Enable Background Voice Control" else "一键启用语音控制后台",
+                        fontSize = 11.sp,
+                        color = if (colors.isDark) Color.Black else Color.White,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
@@ -866,7 +958,9 @@ fun VoiceControlCompactCard(
     actionLog: String,
     colors: ThemeColors,
     isEnglish: Boolean,
-    onToggleVoice: (Boolean) -> Unit
+    voiceControlEnabled: Boolean,
+    onToggleVoice: (Boolean) -> Unit,
+    onToggleVoiceControl: (Boolean) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -890,7 +984,11 @@ fun VoiceControlCompactCard(
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(if (voiceState is VoiceState.Listening) colors.success else colors.accentSecondary)
+                            .background(
+                                if (!voiceControlEnabled) Color.Gray
+                                else if (voiceState is VoiceState.Listening) colors.success 
+                                else colors.accentSecondary
+                            )
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
@@ -902,28 +1000,48 @@ fun VoiceControlCompactCard(
                 }
 
                 // Small quick toggle button
-                IconButton(
-                    onClick = { 
-                        if (voiceState is VoiceState.Listening) onToggleVoice(false) else onToggleVoice(true) 
-                    },
-                    modifier = Modifier
-                        .background(colors.cardBackground, CircleShape)
-                        .size(30.dp)
-                ) {
-                    Icon(
-                        imageVector = if (voiceState is VoiceState.Listening) Icons.Default.Close else Icons.Default.PlayArrow,
-                        contentDescription = "mic icon",
-                        tint = if (voiceState is VoiceState.Listening) Color.Red else colors.accent,
-                        modifier = Modifier.size(14.dp)
-                    )
+                if (voiceControlEnabled) {
+                    IconButton(
+                        onClick = { 
+                            if (voiceState is VoiceState.Listening) onToggleVoice(false) else onToggleVoice(true) 
+                        },
+                        modifier = Modifier
+                            .background(colors.cardBackground, CircleShape)
+                            .size(30.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (voiceState is VoiceState.Listening) Icons.Default.Close else Icons.Default.PlayArrow,
+                            contentDescription = "mic icon",
+                            tint = if (voiceState is VoiceState.Listening) Color.Red else colors.accent,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                } else {
+                    IconButton(
+                        onClick = { onToggleVoiceControl(true) },
+                        modifier = Modifier
+                            .background(colors.success.copy(alpha = 0.15f), CircleShape)
+                            .size(30.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "enable icon",
+                            tint = colors.success,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(6.dp))
 
             Text(
-                text = actionLog,
-                color = getVoiceLogColor(voiceState),
+                text = if (!voiceControlEnabled) {
+                    if (isEnglish) "Voice control disabled (battery saved)" else "语音控制关闭中 (后台不监听，省电)"
+                } else {
+                    actionLog
+                },
+                color = if (!voiceControlEnabled) colors.textSecondary.copy(alpha = 0.6f) else getVoiceLogColor(voiceState),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 2,
@@ -1600,6 +1718,8 @@ fun TimeSettingsDialog(
     onSaveClockColor: (Int) -> Unit,
     selectedDateColor: Int,
     onSaveDateColor: (Int) -> Unit,
+    voiceControlEnabled: Boolean,
+    onToggleVoiceControl: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     var hour by remember { mutableStateOf(12) }
@@ -1644,6 +1764,37 @@ fun TimeSettingsDialog(
                     Switch(
                         checked = useSystemTime,
                         onCheckedChange = { onToggleAuto(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.success,
+                            checkedTrackColor = colors.success.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Toggle Voice Control & Listening (Power saving option)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = if (isEnglish) "Voice Control & Wake-up" else "启用语音唤醒控制",
+                            color = colors.textPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = if (isEnglish) "Disable to release mic & save power" else "关闭将释放麦克风并大幅节省电量",
+                            color = colors.textSecondary.copy(alpha = 0.7f),
+                            fontSize = 10.sp
+                        )
+                    }
+                    Switch(
+                        checked = voiceControlEnabled,
+                        onCheckedChange = { onToggleVoiceControl(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = colors.success,
                             checkedTrackColor = colors.success.copy(alpha = 0.5f)

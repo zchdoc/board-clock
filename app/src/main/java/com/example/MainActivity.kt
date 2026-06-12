@@ -16,6 +16,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.example.ui.screens.DashboardScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.utils.VoiceRecognizerManager
@@ -31,7 +33,9 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { isGranted: Boolean ->
         if (isGranted) {
-            setupAndStartVoiceListening()
+            if (viewModel.voiceControlEnabled.value) {
+                setupAndStartVoiceListening()
+            }
         } else {
             viewModel.updateVoiceState(
                 VoiceState.Error("缺乏麦克风权限。请前往底座设置中授予录音控制权。")
@@ -44,7 +48,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        checkAndRequestMicrophonePermission()
+        // Collect voiceControlEnabled state to turn voice listener on/off reactively
+        lifecycleScope.launch {
+            viewModel.voiceControlEnabled.collect { enabled ->
+                if (enabled) {
+                    checkAndRequestMicrophonePermission()
+                } else {
+                    voiceRecognizerManager?.stopListening()
+                }
+            }
+        }
 
         setContent {
             val isDarkMode by viewModel.isDarkMode.collectAsStateWithLifecycle()
@@ -54,8 +67,10 @@ class MainActivity : ComponentActivity() {
                         viewModel = viewModel,
                         modifier = Modifier.padding(innerPadding),
                         onToggleVoice = { enabled ->
-                            voiceRecognizerManager?.toggleContinuous(enabled) ?: run {
-                                if (enabled) checkAndRequestMicrophonePermission()
+                            if (viewModel.voiceControlEnabled.value) {
+                                voiceRecognizerManager?.toggleContinuous(enabled) ?: run {
+                                    if (enabled) checkAndRequestMicrophonePermission()
+                                }
                             }
                         },
                         onToggleOrientation = {
@@ -72,6 +87,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkAndRequestMicrophonePermission() {
+        if (!viewModel.voiceControlEnabled.value) return
         when {
             ContextCompat.checkSelfPermission(
                 this,
@@ -86,6 +102,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupAndStartVoiceListening() {
+        if (!viewModel.voiceControlEnabled.value) return
         if (voiceRecognizerManager == null) {
             voiceRecognizerManager = VoiceRecognizerManager(
                 context = this,
@@ -108,7 +125,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.loadInstalledApps()
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+        if (viewModel.voiceControlEnabled.value && ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             voiceRecognizerManager?.startListening()
         }
     }
