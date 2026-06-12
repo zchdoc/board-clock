@@ -30,8 +30,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val prefs = application.getSharedPreferences("board_clock_prefs", Context.MODE_PRIVATE)
 
     // Preference states
-    private val _videoUri = MutableStateFlow(prefs.getString("video_uri", null))
-    val videoUri: StateFlow<String?> = _videoUri.asStateFlow()
+    private val _videoUriPortrait = MutableStateFlow(prefs.getString("video_uri_portrait", prefs.getString("video_uri", null)))
+    val videoUriPortrait: StateFlow<String?> = _videoUriPortrait.asStateFlow()
+
+    private val _videoUriLandscape = MutableStateFlow(prefs.getString("video_uri_landscape", prefs.getString("video_uri", null)))
+    val videoUriLandscape: StateFlow<String?> = _videoUriLandscape.asStateFlow()
 
     private val _clockColor = MutableStateFlow(prefs.getInt("clock_color_int", 0))
     val clockColor: StateFlow<Int> = _clockColor.asStateFlow()
@@ -49,12 +52,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         prefs.edit().putInt("date_color_int", color).apply()
     }
 
-    fun setVideoUri(uri: String?) {
-        _videoUri.value = uri
+    fun setVideoUriPortrait(uri: String?) {
+        _videoUriPortrait.value = uri
         if (uri != null) {
-            prefs.edit().putString("video_uri", uri).apply()
+            prefs.edit().putString("video_uri_portrait", uri).apply()
         } else {
-            prefs.edit().remove("video_uri").apply()
+            prefs.edit().remove("video_uri_portrait").apply()
+        }
+    }
+
+    fun setVideoUriLandscape(uri: String?) {
+        _videoUriLandscape.value = uri
+        if (uri != null) {
+            prefs.edit().putString("video_uri_landscape", uri).apply()
+        } else {
+            prefs.edit().remove("video_uri_landscape").apply()
         }
     }
 

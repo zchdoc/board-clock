@@ -138,7 +138,19 @@ fun DashboardScreen(
     val isEnglish by viewModel.isEnglish.collectAsStateWithLifecycle()
     val timeOffsetMs by viewModel.timeOffsetMs.collectAsStateWithLifecycle()
     val useSystemTime by viewModel.useSystemTime.collectAsStateWithLifecycle()
-    val videoUriStr by viewModel.videoUri.collectAsStateWithLifecycle()
+    val videoUriPortraitStr by viewModel.videoUriPortrait.collectAsStateWithLifecycle()
+    val videoUriLandscapeStr by viewModel.videoUriLandscape.collectAsStateWithLifecycle()
+
+    // Screen height and width parameters to adjust orientation beautifully
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    val isPortrait = configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+
+    // Determine active video based on orientation: portrait video for portrait mode, landscape video for landscape mode
+    val activeVideoUri = if (isPortrait) {
+        videoUriPortraitStr
+    } else {
+        videoUriLandscapeStr
+    }
     val clockColorInt by viewModel.clockColor.collectAsStateWithLifecycle()
     val dateColorInt by viewModel.dateColor.collectAsStateWithLifecycle()
     val voiceControlEnabled by viewModel.voiceControlEnabled.collectAsStateWithLifecycle()
@@ -147,9 +159,7 @@ fun DashboardScreen(
     val clockColor = if (clockColorInt != 0) Color(clockColorInt) else colors.accent
     val dateColor = if (dateColorInt != 0) Color(dateColorInt) else colors.textPrimary
 
-    // Screen height and width parameters to adjust orientation beautifully
-    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
-    val isPortrait = configuration.orientation == android.content.res.Configuration.ORIENTATION_PORTRAIT
+    var targetPickerIsPortrait by remember { mutableStateOf(true) }
 
     // Local video picker launcher
     val videoPickerLauncher = rememberLauncherForActivityResult(
@@ -162,7 +172,11 @@ fun DashboardScreen(
             } catch (e: Exception) {
                 e.printStackTrace()
             }
-            viewModel.setVideoUri(uri.toString())
+            if (targetPickerIsPortrait) {
+                viewModel.setVideoUriPortrait(uri.toString())
+            } else {
+                viewModel.setVideoUriLandscape(uri.toString())
+            }
         }
     }
 
@@ -216,9 +230,9 @@ fun DashboardScreen(
             contentAlignment = Alignment.Center
         ) {
             // Render video dynamic background if configured
-            if (!videoUriStr.isNullOrEmpty()) {
+            if (!activeVideoUri.isNullOrEmpty()) {
                 VideoBackgroundPlayer(
-                    uriString = videoUriStr!!,
+                    uriString = activeVideoUri!!,
                     modifier = Modifier.fillMaxSize()
                 )
                 // Half-black dim overlay to make white clock text pop perfectly!
@@ -509,15 +523,26 @@ fun DashboardScreen(
                                 useSystemTime = useSystemTime,
                                 onToggleAuto = { viewModel.setUseSystemTime(it) },
                                 onSaveTime = { h, m, s -> viewModel.setCustomTime(h, m, s) },
-                                videoUri = videoUriStr,
-                                onChooseVideo = {
+                                videoUriPortrait = videoUriPortraitStr,
+                                videoUriLandscape = videoUriLandscapeStr,
+                                onChooseVideoPortrait = {
+                                    targetPickerIsPortrait = true
                                     try {
                                         videoPickerLauncher.launch(arrayOf("video/*"))
                                     } catch (e: Exception) {
                                         e.printStackTrace()
                                     }
                                 },
-                                onClearVideo = { viewModel.setVideoUri(null) },
+                                onClearVideoPortrait = { viewModel.setVideoUriPortrait(null) },
+                                onChooseVideoLandscape = {
+                                    targetPickerIsPortrait = false
+                                    try {
+                                        videoPickerLauncher.launch(arrayOf("video/*"))
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                },
+                                onClearVideoLandscape = { viewModel.setVideoUriLandscape(null) },
                                 selectedClockColor = clockColorInt,
                                 onSaveClockColor = { viewModel.setClockColor(it) },
                                 selectedDateColor = dateColorInt,
@@ -1703,6 +1728,103 @@ fun AppIconRenderer(drawable: Drawable?, label: String, colors: ThemeColors) {
     }
 }
 
+// ---------------------- DIALOG: TIME SETTINGS & VIDEO PICKER HELPERS ----------------------
+@Composable
+fun VideoSelectorItem(
+    title: String,
+    subtitle: String,
+    videoUri: String?,
+    isEnglish: Boolean,
+    colors: ThemeColors,
+    onChoose: () -> Unit,
+    onClear: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = colors.cardBackground.copy(alpha = 0.4f)),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = title,
+                color = colors.textPrimary,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = subtitle,
+                color = colors.textSecondary.copy(alpha = 0.8f),
+                fontSize = 10.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            if (!videoUri.isNullOrEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isEnglish) "✓ Set" else "✓ 已设置",
+                        color = colors.success,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Button(
+                        onClick = onChoose,
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.height(28.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                    ) {
+                        Text(
+                            text = if (isEnglish) "Replace" else "更换",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (colors.isDark) Color.Black else Color.White
+                        )
+                    }
+                    Button(
+                        onClick = onClear,
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
+                        shape = RoundedCornerShape(6.dp),
+                        modifier = Modifier.height(28.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                    ) {
+                        Text(
+                            text = if (isEnglish) "Delete" else "清除",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+            } else {
+                Button(
+                    onClick = onChoose,
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.border),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().height(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "play video",
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isEnglish) "Select video" else "选择视频",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = colors.textPrimary
+                    )
+                }
+            }
+        }
+    }
+}
+
 // ---------------------- DIALOG: TIME SETTINGS ----------------------
 @Composable
 fun TimeSettingsDialog(
@@ -1711,9 +1833,12 @@ fun TimeSettingsDialog(
     useSystemTime: Boolean,
     onToggleAuto: (Boolean) -> Unit,
     onSaveTime: (Int, Int, Int) -> Unit,
-    videoUri: String?,
-    onChooseVideo: () -> Unit,
-    onClearVideo: () -> Unit,
+    videoUriPortrait: String?,
+    videoUriLandscape: String?,
+    onChooseVideoPortrait: () -> Unit,
+    onClearVideoPortrait: () -> Unit,
+    onChooseVideoLandscape: () -> Unit,
+    onClearVideoLandscape: () -> Unit,
     selectedClockColor: Int,
     onSaveClockColor: (Int) -> Unit,
     selectedDateColor: Int,
@@ -1879,77 +2004,29 @@ fun TimeSettingsDialog(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
 
-                if (!videoUri.isNullOrEmpty()) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = colors.cardBackground),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(
-                                text = if (isEnglish) "✓ Custom video theme selected" else "✓ 已成功载入本地视频背景",
-                                color = colors.success,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Button(
-                                    onClick = onChooseVideo,
-                                    colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
-                                    shape = RoundedCornerShape(6.dp),
-                                    modifier = Modifier.weight(1f).height(32.dp),
-                                    contentPadding = PaddingValues(0.dp)
-                                ) {
-                                    Text(
-                                        text = if (isEnglish) "Replace" else "更换视频",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (colors.isDark) Color.Black else Color.White
-                                    )
-                                }
-                                Button(
-                                    onClick = onClearVideo,
-                                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f)),
-                                    shape = RoundedCornerShape(6.dp),
-                                    modifier = Modifier.weight(1f).height(32.dp),
-                                    contentPadding = PaddingValues(0.dp)
-                                ) {
-                                    Text(
-                                        text = if (isEnglish) "Delete" else "删除卸载",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    Button(
-                        onClick = onChooseVideo,
-                        colors = ButtonDefaults.buttonColors(containerColor = colors.border),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth().height(42.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.PlayArrow,
-                            contentDescription = "play video",
-                            tint = colors.textPrimary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (isEnglish) "Choose Video Background" else "选择本地视频作为时钟背景",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = colors.textPrimary
-                        )
-                    }
-                }
+                // Portrait select block
+                VideoSelectorItem(
+                    title = if (isEnglish) "Portrait Background Video" else "竖屏动态视频背景",
+                    subtitle = if (isEnglish) "Played only when screen is Portrait" else "仅在屏幕处于竖屏方向时载入并播放",
+                    videoUri = videoUriPortrait,
+                    isEnglish = isEnglish,
+                    colors = colors,
+                    onChoose = onChooseVideoPortrait,
+                    onClear = onClearVideoPortrait
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Landscape select block
+                VideoSelectorItem(
+                    title = if (isEnglish) "Landscape Background Video" else "横屏动态视频背景",
+                    subtitle = if (isEnglish) "Played only when screen is Landscape" else "仅在屏幕处于横屏方向时载入并播放",
+                    videoUri = videoUriLandscape,
+                    isEnglish = isEnglish,
+                    colors = colors,
+                    onChoose = onChooseVideoLandscape,
+                    onClear = onClearVideoLandscape
+                )
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Divider(color = colors.border.copy(alpha = 0.5f))
