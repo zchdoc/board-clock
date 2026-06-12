@@ -113,7 +113,7 @@ fun getLocalizedText(isEnglish: Boolean, key: String): String {
         "app_mappings" to if (isEnglish) "Command Links [0-9]" else "指令链接绑定 [0-9]",
         "hw_detect" to if (isEnglish) "Hardware Sensors" else "感知传感器检测",
         "sys_detect" to if (isEnglish) "Android System API" else "系统SDK规格检测",
-        "timezone" to if (isEnglish) "Local Timezone" else "东八区时间",
+        "timezone" to if (isEnglish) "Local Timezone" else "华夏标准时间/工业显示器校色",
         "voice_status" to if (isEnglish) "Voice Recognizer Engine" else "声学拾音识别引擎",
         "start_voice" to if (isEnglish) "Listen" else "启动监听",
         "stop_voice" to if (isEnglish) "Mute" else "阻断静口",
