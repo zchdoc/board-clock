@@ -8,15 +8,15 @@
 
 在本地环境下编译 Android 项目，您需要准备以下环境：
 
-### 1. 安装 Java 开发工具包 (JDK) - **必须为 JDK 17**
-本项目的 Gradle 已经适配了 Java 17。
-* **下载地址**：推荐使用 [Azul Zulu JDK 17](https://www.azul.com/downloads/?version=java-17-lts&package=jdk) 或 Oracle JDK 17。
+### 1. 安装 Java 开发工具包 (JDK) - **已适配 JDK 21**
+本项目的 编译版本与 Gradle 已经全部完美适配且专门优化了 **Java 21 / JDK 21** 环境（同时兼容 JDK 17）。
+* **下载地址**：推荐使用 [Azul Zulu JDK 21](https://www.azul.com/downloads/?version=java-21-lts&package=jdk) 或 Oracle JDK 21。
 * **验证安装**：
   打开您电脑的终端（Terminal / CMD / PowerShell），输入以下命令检查版本：
   ```bash
   java -version
   ```
-  *确认输出中的主版本号为 `17`。*
+  *确认输出中的主版本号为 `21`。*
 
 ### 2. 双通道编译方案选择（推荐方法一）
 
@@ -98,9 +98,9 @@
 
 ## ❓ 常见问题与报错排查 (Troubleshooting)
 
-#### Q1: 编译时报错 `Unsupported class file major version 65` 或者 `SDK location not found`?
+#### Q1: 编译时报错 `Unsupported class file major version` 或者 `SDK location not found`?
 * **A**: 
-  1. `Unsupported class file major version` 说明您的电脑上配置的 Java 版本（如 JDK 21）与当前 Gradle 支持的版本冲突。请前往 Android Studio 的 **Settings -> Build, Execution, Deployment -> Build Tools -> Gradle** 中，将 **Gradle JDK** 修改为指定的 **JDK 17**。
+  1. `Unsupported class file major version` 说明当前运行的 Gradle 服务和当前的本地 Java 版本不对应。我们已经为您在项目中将编译选项和 `gradle-wrapper` 分别配置、升级到了高级版的 **Gradle 9.3.1** 与 **JDK 21**，如果您依然遇到本报错，请确保您的本地 JVM 环境已经正确配置为了 **Java 21** (JDK 21)，或者可在 Android Studio 的 **Settings -> Build, Execution, Deployment -> Build Tools -> Gradle** 路径中，把 **Gradle JDK** 选择为对应的 **JDK 21**。
   2. `SDK location not found` 说明 Gradle 找不到您的 Android SDK。您可以在解压的项目根目录下，手动创建一个名为 `local.properties` 的文本文件，在里边写上您的 SDK 路径，例如：
      ```properties
      sdk.dir=C\:\\Users\\您的用户名\\AppData\\Local\\Android\\Sdk
