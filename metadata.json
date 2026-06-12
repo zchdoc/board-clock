@@ -1,0 +1,6 @@
+{
+  "name": "Board Clock",
+  "description": "Immersive full-screen clock with localized voice-controlled app launching, system OS/API detector, and hardware/sensor debugger for Android development boards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
