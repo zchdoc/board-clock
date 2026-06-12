@@ -79,6 +79,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _useSystemTime = MutableStateFlow(prefs.getBoolean("use_system_time", true))
     val useSystemTime: StateFlow<Boolean> = _useSystemTime.asStateFlow()
 
+    private val _showSeconds = MutableStateFlow(prefs.getBoolean("show_seconds", true))
+    val showSeconds: StateFlow<Boolean> = _showSeconds.asStateFlow()
+
     private val _timeOffsetMs = MutableStateFlow(prefs.getLong("time_offset_ms", 0L))
     val timeOffsetMs: StateFlow<Long> = _timeOffsetMs.asStateFlow()
 
@@ -162,6 +165,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setUseSystemTime(enabled: Boolean) {
         _useSystemTime.value = enabled
         prefs.edit().putBoolean("use_system_time", enabled).apply()
+    }
+
+    fun setShowSeconds(enabled: Boolean) {
+        _showSeconds.value = enabled
+        prefs.edit().putBoolean("show_seconds", enabled).apply()
     }
 
     fun setCustomTime(hour: Int, minute: Int, second: Int) {

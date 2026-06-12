@@ -3,6 +3,7 @@ package com.example.ui.screens
 import android.content.Context
 import android.content.Intent
 import android.graphics.drawable.Drawable
+import android.media.RingtoneManager
 import android.net.Uri
 import android.widget.Toast
 import android.widget.VideoView
@@ -138,6 +139,7 @@ fun DashboardScreen(
     val isEnglish by viewModel.isEnglish.collectAsStateWithLifecycle()
     val timeOffsetMs by viewModel.timeOffsetMs.collectAsStateWithLifecycle()
     val useSystemTime by viewModel.useSystemTime.collectAsStateWithLifecycle()
+    val showSeconds by viewModel.showSeconds.collectAsStateWithLifecycle()
     val videoUriPortraitStr by viewModel.videoUriPortrait.collectAsStateWithLifecycle()
     val videoUriLandscapeStr by viewModel.videoUriLandscape.collectAsStateWithLifecycle()
 
@@ -205,8 +207,9 @@ fun DashboardScreen(
 
     // Formatter locales
     val locale = if (isEnglish) Locale.ENGLISH else Locale.SIMPLIFIED_CHINESE
-    val timeStr = remember(currentTimeMillis, locale) {
-        SimpleDateFormat("HH:mm:ss", locale).format(Date(currentTimeMillis))
+    val timeStr = remember(currentTimeMillis, locale, showSeconds) {
+        val pattern = if (showSeconds) "HH:mm:ss" else "HH:mm"
+        SimpleDateFormat(pattern, locale).format(Date(currentTimeMillis))
     }
     val dateStr = remember(currentTimeMillis, locale) {
         val pattern = if (isEnglish) "MMMM dd, yyyy" else "yyyy年MM月dd日"
@@ -216,6 +219,39 @@ fun DashboardScreen(
         val pattern = if (isEnglish) "EEEE" else "星期EEEE"
         val raw = SimpleDateFormat(pattern, locale).format(Date(currentTimeMillis))
         if (!isEnglish) raw.replace("星期星期", "星期") else raw
+    }
+
+    // Timer / Countdown States
+    var countdownSeconds by remember { mutableStateOf(0) }
+    var activeRingtone by remember { mutableStateOf<android.media.Ringtone?>(null) }
+
+    LaunchedEffect(countdownSeconds) {
+        if (countdownSeconds > 0) {
+            kotlinx.coroutines.delay(1000L)
+            countdownSeconds -= 1
+            if (countdownSeconds == 0) {
+                // Play alarm sound
+                try {
+                    val alertUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                    val r = RingtoneManager.getRingtone(context, alertUri)
+                    r?.play()
+                    activeRingtone = r
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            try {
+                activeRingtone?.stop()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     if (isFullscreen) {
@@ -234,12 +270,6 @@ fun DashboardScreen(
                 VideoBackgroundPlayer(
                     uriString = activeVideoUri!!,
                     modifier = Modifier.fillMaxSize()
-                )
-                // Half-black dim overlay to make white clock text pop perfectly!
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.55f))
                 )
             }
 
@@ -271,6 +301,42 @@ fun DashboardScreen(
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier.fillMaxWidth()
                 ) {
+                    if (countdownSeconds > 0) {
+                        // Display countdown text beautifully above the clock
+                        val m = countdownSeconds / 60
+                        val s = countdownSeconds % 60
+                        val countdownStr = String.format("%02d:%02d", m, s)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .background(Color.Red.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = if (isEnglish) "Timer: $countdownStr" else "倒计时: $countdownStr",
+                                color = Color.White,
+                                fontSize = maxOf(14f, dynamicFontSize * 0.20f).sp,
+                                fontWeight = FontWeight.Bold,
+                                style = androidx.compose.ui.text.TextStyle(
+                                    shadow = androidx.compose.ui.graphics.Shadow(
+                                        color = Color.Black.copy(alpha = 0.5f),
+                                        offset = androidx.compose.ui.geometry.Offset(2f, 2f),
+                                        blurRadius = 4f
+                                    )
+                                )
+                            )
+                        }
+                        Spacer(modifier = Modifier.height((maxH * 0.04f).dp))
+                    }
+
                     // 1. Hours:Minutes:Seconds (Centered, super maximized)
                     Text(
                         text = timeStr,
@@ -280,7 +346,14 @@ fun DashboardScreen(
                         fontFamily = FontFamily.SansSerif,
                         textAlign = TextAlign.Center,
                         maxLines = 1,
-                        softWrap = false
+                        softWrap = false,
+                        style = androidx.compose.ui.text.TextStyle(
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.8f),
+                                offset = androidx.compose.ui.geometry.Offset(3f, 3f),
+                                blurRadius = 8f
+                            )
+                        )
                     )
                     
                     Spacer(modifier = Modifier.height((maxH * 0.05f).dp))
@@ -291,31 +364,57 @@ fun DashboardScreen(
                         color = dateColor,
                         fontSize = maxOf(14f, dynamicFontSize * 0.25f).sp,
                         fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        style = androidx.compose.ui.text.TextStyle(
+                            shadow = androidx.compose.ui.graphics.Shadow(
+                                color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.8f),
+                                offset = androidx.compose.ui.geometry.Offset(2f, 2f),
+                                blurRadius = 6f
+                            )
+                        )
                     )
-                    
-                    Spacer(modifier = Modifier.height((maxH * 0.02f).dp))
-                    
-                    // 3. Timezone/Calibrator message (Below day)
-                    Text(
-                        text = getLocalizedText(isEnglish, "timezone"),
-                        color = colors.textSecondary,
-                        fontSize = maxOf(10f, dynamicFontSize * 0.15f).sp,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center
-                    )
+                }
+            }
 
-                    Spacer(modifier = Modifier.height((maxH * 0.08f).dp))
-
-                    // 4. Mode hint
-                    Text(
-                        text = if (isEnglish) "• TAP ANYWHERE TO EXIT •" else "• 轻触屏幕任意位置返回控制面板 •",
-                        color = colors.textSecondary.copy(alpha = 0.5f),
-                        fontSize = maxOf(9f, dynamicFontSize * 0.11f).sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
+            // Top-left corner timer/countdown reminder block (click to start 5 minutes/increment 5 mins)
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = {
+                        countdownSeconds = if (countdownSeconds <= 0) 300 else countdownSeconds + 300
+                    },
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                        .size(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Timer Remind",
+                        tint = if (countdownSeconds > 0) Color.Green else Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
+                }
+
+                // If timer is running, show a cancel icon next to it
+                if (countdownSeconds > 0) {
+                    IconButton(
+                        onClick = { countdownSeconds = 0 },
+                        modifier = Modifier
+                            .background(Color.Red.copy(alpha = 0.65f), CircleShape)
+                            .size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Cancel Timer",
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
                 }
             }
 
@@ -411,6 +510,80 @@ fun DashboardScreen(
                             colors = DarkThemeColors,
                             isEnglish = isEnglish
                         )
+                    }
+                }
+            }
+
+            // Timed Alarm Alert Dialog Overlay
+            if (activeRingtone != null) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.85f))
+                        .clickable(enabled = false, onClick = {}),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .padding(24.dp)
+                            .widthIn(max = 400.dp)
+                            .fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFF212121)),
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(2.dp, Color.Red.copy(alpha = 0.8f))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = null,
+                                tint = Color.Red,
+                                modifier = Modifier.size(64.dp)
+                            )
+                            
+                            Text(
+                                text = if (isEnglish) "Timer Finished!" else "定时提醒时间到！",
+                                color = Color.White,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            Text(
+                                text = if (isEnglish) "Your countdown timer has expired." else "设置的倒计时提醒时间已达到。",
+                                color = Color.White.copy(alpha = 0.7f),
+                                fontSize = 14.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            Button(
+                                onClick = {
+                                    try {
+                                        activeRingtone?.stop()
+                                    } catch (e: Exception) {
+                                        e.printStackTrace()
+                                    }
+                                    activeRingtone = null
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text(
+                                    text = if (isEnglish) "Stop Sound" else "我知道了 / 停止声音",
+                                    color = Color.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -522,6 +695,8 @@ fun DashboardScreen(
                                 colors = colors,
                                 useSystemTime = useSystemTime,
                                 onToggleAuto = { viewModel.setUseSystemTime(it) },
+                                showSeconds = showSeconds,
+                                onToggleSeconds = { viewModel.setShowSeconds(it) },
                                 onSaveTime = { h, m, s -> viewModel.setCustomTime(h, m, s) },
                                 videoUriPortrait = videoUriPortraitStr,
                                 videoUriLandscape = videoUriLandscapeStr,
@@ -1832,6 +2007,8 @@ fun TimeSettingsDialog(
     colors: ThemeColors,
     useSystemTime: Boolean,
     onToggleAuto: (Boolean) -> Unit,
+    showSeconds: Boolean,
+    onToggleSeconds: (Boolean) -> Unit,
     onSaveTime: (Int, Int, Int) -> Unit,
     videoUriPortrait: String?,
     videoUriLandscape: String?,
@@ -1889,6 +2066,29 @@ fun TimeSettingsDialog(
                     Switch(
                         checked = useSystemTime,
                         onCheckedChange = { onToggleAuto(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = colors.success,
+                            checkedTrackColor = colors.success.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Toggle Show Seconds
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isEnglish) "Show Seconds" else "大屏时钟显示秒数",
+                        color = colors.textSecondary,
+                        fontSize = 13.sp
+                    )
+                    Switch(
+                        checked = showSeconds,
+                        onCheckedChange = { onToggleSeconds(it) },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = colors.success,
                             checkedTrackColor = colors.success.copy(alpha = 0.5f)
