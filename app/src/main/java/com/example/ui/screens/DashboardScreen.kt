@@ -140,6 +140,7 @@ fun DashboardScreen(
     val timeOffsetMs by viewModel.timeOffsetMs.collectAsStateWithLifecycle()
     val useSystemTime by viewModel.useSystemTime.collectAsStateWithLifecycle()
     val showSeconds by viewModel.showSeconds.collectAsStateWithLifecycle()
+    val showVideoBackground by viewModel.showVideoBackground.collectAsStateWithLifecycle()
     val videoUriPortraitStr by viewModel.videoUriPortrait.collectAsStateWithLifecycle()
     val videoUriLandscapeStr by viewModel.videoUriLandscape.collectAsStateWithLifecycle()
 
@@ -265,8 +266,8 @@ fun DashboardScreen(
                 .testTag("fullscreen_clock_view"),
             contentAlignment = Alignment.Center
         ) {
-            // Render video dynamic background if configured
-            if (!activeVideoUri.isNullOrEmpty()) {
+            // Render video dynamic background if configured & enabled
+            if (showVideoBackground && !activeVideoUri.isNullOrEmpty()) {
                 VideoBackgroundPlayer(
                     uriString = activeVideoUri!!,
                     modifier = Modifier.fillMaxSize()
@@ -393,7 +394,7 @@ fun DashboardScreen(
                         .size(44.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.PlayArrow,
+                        imageVector = Icons.Default.Notifications,
                         contentDescription = "Timer Remind",
                         tint = if (countdownSeconds > 0) Color.Green else Color.White,
                         modifier = Modifier.size(20.dp)
@@ -418,21 +419,46 @@ fun DashboardScreen(
                 }
             }
 
-            // Real-time custom color tuner button in top corner
-            IconButton(
-                onClick = { showColorTunePanel = !showColorTunePanel },
+            // Real-time custom color tuner and background dynamic video toggle buttons in top corner
+            Row(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(20.dp)
-                    .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-                    .size(44.dp)
+                    .padding(20.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Edit,
-                    contentDescription = "Tune Colors",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
+                // Toggle Show / Hide Dynamic video background
+                IconButton(
+                    onClick = { viewModel.setShowVideoBackground(!showVideoBackground) },
+                    modifier = Modifier
+                        .background(
+                            if (showVideoBackground) Color.Black.copy(alpha = 0.55f)
+                            else Color.Red.copy(alpha = 0.55f),
+                            CircleShape
+                        )
+                        .size(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.PlayArrow,
+                        contentDescription = "Toggle Background",
+                        tint = if (showVideoBackground) Color.White else Color.Red,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                IconButton(
+                    onClick = { showColorTunePanel = !showColorTunePanel },
+                    modifier = Modifier
+                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                        .size(44.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Tune Colors",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
 
             // Slide up visual tuning panel
