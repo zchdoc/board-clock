@@ -257,6 +257,9 @@ fun DashboardScreen(
 
     if (isFullscreen) {
         var showColorTunePanel by remember { mutableStateOf(false) }
+        var showPasswordDialog by remember { mutableStateOf(false) }
+        var passwordInput by remember { mutableStateOf("") }
+        var passwordError by remember { mutableStateOf(false) }
 
         // Fullscreen Clock display - Maximized hours, minutes, and seconds, with everything else below
         Box(
@@ -274,11 +277,9 @@ fun DashboardScreen(
                 )
             }
 
-            // Clickable background layer (tapping anywhere on the empty background exits fullscreen)
+            // Clickable background layer doing nothing to avoid accidental exit/trigger settings.
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clickable { viewModel.setFullscreen(false) }
+                modifier = Modifier.fillMaxSize()
             )
 
             BoxWithConstraints(
@@ -377,88 +378,296 @@ fun DashboardScreen(
                 }
             }
 
-            // Top-left corner timer/countdown reminder block (click to start 5 minutes/increment 5 mins)
-            Row(
+            // Bottom control actions panel (Clearly visible stylized buttons, 50.dp height for large touch target)
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(20.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = if (showColorTunePanel) 140.dp else 24.dp)
+                    .padding(horizontal = 16.dp)
+                    .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(20.dp))
+                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
-                IconButton(
-                    onClick = {
-                        countdownSeconds = if (countdownSeconds <= 0) 300 else countdownSeconds + 300
-                    },
+                Row(
                     modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-                        .size(44.dp)
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = "Timer Remind",
-                        tint = if (countdownSeconds > 0) Color.Green else Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // If timer is running, show a cancel icon next to it
-                if (countdownSeconds > 0) {
-                    IconButton(
-                        onClick = { countdownSeconds = 0 },
+                    // 1. Timer / Countdown Button
+                    Button(
+                        onClick = {
+                            countdownSeconds = if (countdownSeconds <= 0) 300 else countdownSeconds + 300
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (countdownSeconds > 0) Color(0xFF2E7D32) else Color.White.copy(alpha = 0.12f),
+                            contentColor = Color.White
+                        ),
                         modifier = Modifier
-                            .background(Color.Red.copy(alpha = 0.65f), CircleShape)
-                            .size(32.dp)
+                            .height(50.dp)
+                            .testTag("big_btn_timer")
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Cancel Timer",
-                            tint = Color.White,
-                            modifier = Modifier.size(14.dp)
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Timer",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (countdownSeconds > 0) {
+                                val m = countdownSeconds / 60
+                                val s = countdownSeconds % 60
+                                String.format("%02d:%02d", m, s)
+                            } else {
+                                if (isEnglish) "5 Min Timer" else "5分钟倒计时"
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    if (countdownSeconds > 0) {
+                        Button(
+                            onClick = { countdownSeconds = 0 },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFC62828),
+                                contentColor = Color.White
+                            ),
+                            modifier = Modifier
+                                .height(50.dp)
+                                .testTag("big_btn_cancel_timer")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cancel Timer",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (isEnglish) "Cancel" else "取消倒计时",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
+
+                    // 2. Toggle Video Background
+                    Button(
+                        onClick = { viewModel.setShowVideoBackground(!showVideoBackground) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (showVideoBackground) Color(0xFF1565C0) else Color(0xFFD84315),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .height(50.dp)
+                            .testTag("big_btn_toggle_bg")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.PlayArrow,
+                            contentDescription = "Video BG",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (showVideoBackground) {
+                                if (isEnglish) "Hide Video BG" else "隐藏视频背景"
+                            } else {
+                                if (isEnglish) "Show Video BG" else "显示视频背景"
+                            },
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    // 3. Tune Colors Page
+                    Button(
+                        onClick = { showColorTunePanel = !showColorTunePanel },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (showColorTunePanel) colors.accent else Color.White.copy(alpha = 0.12f),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .height(50.dp)
+                            .testTag("big_btn_tune_colors")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Tune Colors",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isEnglish) "Tune Colors" else "大屏时空调色",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    // 4. Open Bound App 1
+                    val slot1Mapping = appMappings.find { it.slot == 1 }
+                    val slot1Label = slot1Mapping?.appName ?: (if (isEnglish) "Bound App 1" else "绑定应用1")
+                    Button(
+                        onClick = { viewModel.triggerAppLaunchBySlot(1) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(alpha = 0.12f),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .height(50.dp)
+                            .testTag("big_btn_launch_app")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Launch App 1",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isEnglish) "Open: $slot1Label" else "打开: $slot1Label",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    // 5. Rotate Screen Orientation
+                    Button(
+                        onClick = onToggleOrientation,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(alpha = 0.12f),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .height(50.dp)
+                            .testTag("big_btn_rotate_screen")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Refresh,
+                            contentDescription = "Rotate Screen",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isEnglish) "Rotate Screen" else "切换横竖屏",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    // 6. Settings Security Unlock Button
+                    Button(
+                        onClick = {
+                            passwordInput = ""
+                            passwordError = false
+                            showPasswordDialog = true
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFEF6C00),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .height(50.dp)
+                            .testTag("big_btn_settings")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings Access",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isEnglish) "Console Setup" else "安全系统设置",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
                         )
                     }
                 }
             }
 
-            // Real-time custom color tuner and background dynamic video toggle buttons in top corner
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(20.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Toggle Show / Hide Dynamic video background
-                IconButton(
-                    onClick = { viewModel.setShowVideoBackground(!showVideoBackground) },
-                    modifier = Modifier
-                        .background(
-                            if (showVideoBackground) Color.Black.copy(alpha = 0.55f)
-                            else Color.Red.copy(alpha = 0.55f),
-                            CircleShape
+            // Fixed password unlock dialog
+            if (showPasswordDialog) {
+                AlertDialog(
+                    onDismissRequest = { showPasswordDialog = false },
+                    title = {
+                        Text(
+                            text = if (isEnglish) "Security Access" else "安全认证",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
                         )
-                        .size(44.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Toggle Background",
-                        tint = if (showVideoBackground) Color.White else Color.Red,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = { showColorTunePanel = !showColorTunePanel },
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.55f), CircleShape)
-                        .size(44.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Tune Colors",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
+                    },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = if (isEnglish) "To exit to dashboard, please enter password:" else "返回控制台需输入安全密码：",
+                                color = Color.White.copy(alpha = 0.8f),
+                                fontSize = 14.sp
+                            )
+                            OutlinedTextField(
+                                value = passwordInput,
+                                onValueChange = { 
+                                    passwordInput = it
+                                    passwordError = false
+                                },
+                                placeholder = { Text(if (isEnglish) "Enter password..." else "请输入安全密码...") },
+                                singleLine = true,
+                                isError = passwordError,
+                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = Color.White,
+                                    unfocusedTextColor = Color.White,
+                                    focusedPlaceholderColor = Color.White.copy(alpha = 0.5f),
+                                    unfocusedPlaceholderColor = Color.White.copy(alpha = 0.4f),
+                                    focusedBorderColor = colors.accent,
+                                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
+                                    errorBorderColor = Color.Red
+                                ),
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            if (passwordError) {
+                                Text(
+                                    text = if (isEnglish) "Incorrect password!" else "安全密码不正确，请重新输入！",
+                                    color = Color.Red,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (passwordInput == "12131404") {
+                                    showPasswordDialog = false
+                                    viewModel.setFullscreen(false)
+                                } else {
+                                    passwordError = true
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = colors.accent)
+                        ) {
+                            Text(if (isEnglish) "Confirm" else "确认", color = Color.White)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showPasswordDialog = false }) {
+                            Text(if (isEnglish) "Cancel" else "取消", color = Color.White.copy(alpha = 0.6f))
+                        }
+                    },
+                    containerColor = Color(0xFF1E1E1E),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.widthIn(max = 320.dp)
+                )
             }
 
             // Slide up visual tuning panel

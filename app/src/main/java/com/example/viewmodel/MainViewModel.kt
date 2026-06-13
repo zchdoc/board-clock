@@ -79,7 +79,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _useSystemTime = MutableStateFlow(prefs.getBoolean("use_system_time", true))
     val useSystemTime: StateFlow<Boolean> = _useSystemTime.asStateFlow()
 
-    private val _showSeconds = MutableStateFlow(prefs.getBoolean("show_seconds", true))
+    private val _showSeconds = MutableStateFlow(prefs.getBoolean("show_seconds", false))
     val showSeconds: StateFlow<Boolean> = _showSeconds.asStateFlow()
 
     private val _showVideoBackground = MutableStateFlow(prefs.getBoolean("show_video_background", true))
@@ -97,7 +97,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         )
 
     // Voice recognition states
-    private val _voiceControlEnabled = MutableStateFlow(prefs.getBoolean("voice_control_enabled", true))
+    private val _voiceControlEnabled = MutableStateFlow(prefs.getBoolean("voice_control_enabled", false))
     val voiceControlEnabled: StateFlow<Boolean> = _voiceControlEnabled.asStateFlow()
 
     fun setVoiceControlEnabled(enabled: Boolean) {
