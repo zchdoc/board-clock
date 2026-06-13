@@ -105,8 +105,8 @@ val LightThemeColors = ThemeColors(
 // Simplified Dynamic Translation engine
 fun getLocalizedText(isEnglish: Boolean, key: String): String {
     val dict = mapOf(
-        "title" to if (isEnglish) "Board Clock & Hardware Debug Workshop" else "开发板边缘时钟及软硬件调试工作台",
-        "title_desc_sub" to if (isEnglish) "BOARD CLOCK INTEGRATED SYSTEM" else "边缘自适应工业级显示及语音交互底座",
+        "title" to if (isEnglish) "Board Clock & Hardware Debug Workshop" else "调试工作台",
+        "title_desc_sub" to if (isEnglish) "BOARD CLOCK INTEGRATED SYSTEM" else "显示及语音交互底座",
         "clock_screen" to if (isEnglish) "Clock Screen" else "时钟大屏",
         "not_bound" to if (isEnglish) "No app mapping shortcut linked" else "未关联本地指令快捷应用",
         "copy_report" to if (isEnglish) "Copy Report" else "一键复制",
@@ -824,6 +824,9 @@ fun DashboardScreen(
             }
         }
     } else {
+        // Manual offset time calibration state dialog
+        var showManualTimePicker by remember { mutableStateOf(false) }
+
         // Desktop Dashboard with side-by-side management specs
         Box(
             modifier = modifier
@@ -834,17 +837,17 @@ fun DashboardScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = 16.dp)
-                    .padding(top = 16.dp, bottom = 12.dp)
+                    .padding(top = 12.dp, bottom = 12.dp)
             ) {
                 // Header Row
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = getLocalizedText(isEnglish, "title_desc_sub"),
+                            text = if (isEnglish) "EDGE BOARD INTEGRATED CONTROL" else "边缘自适应工业级显示及语音交互底座",
                             color = colors.accent,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -852,7 +855,7 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = getLocalizedText(isEnglish, "title"),
+                            text = if (isEnglish) "System settings & console dashboard" else "系统控制与边缘控制台",
                             color = colors.textPrimary,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -891,76 +894,18 @@ fun DashboardScreen(
                                 .size(36.dp)
                         ) {
                             Canvas(modifier = Modifier.size(16.dp)) {
-                                // Draw left half filled
                                 drawArc(
                                     color = colors.accent,
                                     startAngle = 90f,
                                     sweepAngle = 180f,
                                     useCenter = true
                                 )
-                                // Draw outer circle outline
                                 drawCircle(
                                     color = colors.accent,
                                     radius = size.minDimension / 2f,
                                     style = Stroke(width = 1.5.dp.toPx())
                                 )
                             }
-                        }
-
-                        // Time adjust triggering Dialog
-                        var showTimeDialog by remember { mutableStateOf(false) }
-                        IconButton(
-                            onClick = { showTimeDialog = true },
-                            modifier = Modifier
-                                .background(colors.surface, CircleShape)
-                                .border(1.dp, colors.border, CircleShape)
-                                .size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Adjust Time",
-                                tint = colors.accent,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        if (showTimeDialog) {
-                            TimeSettingsDialog(
-                                isEnglish = isEnglish,
-                                colors = colors,
-                                useSystemTime = useSystemTime,
-                                onToggleAuto = { viewModel.setUseSystemTime(it) },
-                                showSeconds = showSeconds,
-                                onToggleSeconds = { viewModel.setShowSeconds(it) },
-                                onSaveTime = { h, m, s -> viewModel.setCustomTime(h, m, s) },
-                                videoUriPortrait = videoUriPortraitStr,
-                                videoUriLandscape = videoUriLandscapeStr,
-                                onChooseVideoPortrait = {
-                                    targetPickerIsPortrait = true
-                                    try {
-                                        videoPickerLauncher.launch(arrayOf("video/*"))
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    }
-                                },
-                                onClearVideoPortrait = { viewModel.setVideoUriPortrait(null) },
-                                onChooseVideoLandscape = {
-                                    targetPickerIsPortrait = false
-                                    try {
-                                        videoPickerLauncher.launch(arrayOf("video/*"))
-                                    } catch (e: Exception) {
-                                        e.printStackTrace()
-                                    }
-                                },
-                                onClearVideoLandscape = { viewModel.setVideoUriLandscape(null) },
-                                selectedClockColor = clockColorInt,
-                                onSaveClockColor = { viewModel.setClockColor(it) },
-                                selectedDateColor = dateColorInt,
-                                onSaveDateColor = { viewModel.setDateColor(it) },
-                                voiceControlEnabled = voiceControlEnabled,
-                                onToggleVoiceControl = { viewModel.setVoiceControlEnabled(it) },
-                                onDismiss = { showTimeDialog = false }
-                            )
                         }
 
                         Spacer(modifier = Modifier.width(4.dp))
@@ -976,43 +921,19 @@ fun DashboardScreen(
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = "Clock",
-                                tint = if (isDarkMode) Color.Black else Color.White,
+                                tint = if (colors.isDark) Color.Black else Color.White,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = getLocalizedText(isEnglish, "clock_screen"),
-                                color = if (isDarkMode) Color.Black else Color.White,
+                                color = if (colors.isDark) Color.Black else Color.White,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // Quick launch slot 1 & 2 controls and screen orientation toggle
-                val slot1Mapping = appMappings.find { it.slot == 1 }
-                val slot2Mapping = appMappings.find { it.slot == 2 }
-
-                QuickActionsRow(
-                    slot1Mapping = slot1Mapping,
-                    slot2Mapping = slot2Mapping,
-                    isEnglish = isEnglish,
-                    colors = colors,
-                    isPortrait = isPortrait,
-                    onLaunchSlot = { slot ->
-                        viewModel.triggerAppLaunchBySlot(slot)
-                    },
-                    onBindSlot = { slot ->
-                        selectedSlotForMapping = slot
-                        showAppSelector = true
-                    },
-                    onToggleOrientation = onToggleOrientation
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
 
                 // Workspace Panes
                 if (!isPortrait) {
@@ -1023,62 +944,740 @@ fun DashboardScreen(
                             .weight(1f),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Left Pane: Clock & Voice Level Analyzer
+                        // Left Pane: Settings Groups (Scrollable List of Parameters)
                         Column(
                             modifier = Modifier
-                                .weight(1.2f)
-                                .fillMaxHeight(),
+                                .weight(1.1f)
+                                .fillMaxHeight()
+                                .verticalScroll(rememberScrollState()),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
+                            // 1. Clock Info Summary
                             ClockInfoCard(timeStr, dateStr, weekStr, colors, isEnglish, clockColor = clockColor, dateColor = dateColor)
-                            VoiceControlCard(
-                                voiceState = voiceState,
-                                actionLog = actionLog,
-                                rmsLevel = rmsLevel,
-                                colors = colors,
-                                isEnglish = isEnglish,
-                                voiceControlEnabled = voiceControlEnabled,
-                                onToggleVoice = onToggleVoice,
-                                onToggleVoiceControl = { viewModel.setVoiceControlEnabled(it) }
-                            )
+
+                            // 2. Display & Screen Rotation (Isolated prominent rotate switch!)
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, colors.border)
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Refresh, null, tint = colors.accent, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (isEnglish) "Display & Screen Rotation" else "显示屏方向与大屏设定",
+                                            color = colors.textPrimary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    HorizontalDivider(color = colors.border.copy(alpha = 0.5f), thickness = 1.dp)
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    // Standalone prominent Rotate Button
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                            Text(
+                                                text = if (isEnglish) "Switch Placement Orientation" else "一键切换屏幕方向 (横 / 竖屏)",
+                                                color = colors.textPrimary,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = if (isEnglish) "Rotate layout to fit physical board mounting orientation" else "根据您的显示面板架设方式，一键旋转系统画布方向",
+                                                color = colors.textSecondary,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                        Button(
+                                            onClick = onToggleOrientation,
+                                            colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 14.dp),
+                                            modifier = Modifier.height(36.dp).testTag("settings_rotate_screen_btn")
+                                        ) {
+                                            Icon(Icons.Default.Refresh, null, tint = if (colors.isDark) Color.Black else Color.White, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = if (isPortrait) (if (isEnglish) "Landscape" else "切至横屏") else (if (isEnglish) "Portrait" else "切至竖屏"),
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (colors.isDark) Color.Black else Color.White
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(14.dp))
+
+                                    // Show seconds option row
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = if (isEnglish) "Display clock seconds" else "全屏时钟大屏显示秒数",
+                                                color = colors.textPrimary,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = if (isEnglish) "High precision realtime ticking indicator" else "开关以控制全屏大屏上是否运行秒钟计数",
+                                                color = colors.textSecondary,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                        Switch(
+                                            checked = showSeconds,
+                                            onCheckedChange = { viewModel.setShowSeconds(it) },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = colors.success,
+                                                checkedTrackColor = colors.success.copy(alpha = 0.5f)
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 3. Live Video Ambient backgrounds
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, colors.border)
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.PlayArrow, null, tint = colors.accent, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (isEnglish) "Dynamic Video Backgrounds" else "时钟大屏动态视频背景",
+                                            color = colors.textPrimary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    HorizontalDivider(color = colors.border.copy(alpha = 0.5f), thickness = 1.dp)
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = if (isEnglish) "Enable Video Backgrounds" else "启用大屏视频背景",
+                                                color = colors.textPrimary,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = if (isEnglish) "Use selected mp4 background on full screen clock" else "开启时，全屏时钟下渲染自定义mp4动效",
+                                                color = colors.textSecondary,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                        Switch(
+                                            checked = showVideoBackground,
+                                            onCheckedChange = { viewModel.setShowVideoBackground(it) },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = colors.success,
+                                                checkedTrackColor = colors.success.copy(alpha = 0.5f)
+                                            )
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    // Portrait video path pick
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(colors.cardBackground, RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    ) {
+                                        Text(
+                                            text = if (isEnglish) "Portrait MP4 Background File" else "📱 竖屏态渲染背景视频",
+                                            color = colors.textPrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = videoUriPortraitStr ?: (if (isEnglish) "(Default pitch black background)" else "(未配置 - 默认使用工业级纯深邃黑色背景)"),
+                                            color = if (videoUriPortraitStr != null) colors.accentSecondary else colors.textSecondary.copy(alpha = 0.5f),
+                                            fontSize = 9.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Button(
+                                                onClick = {
+                                                    targetPickerIsPortrait = true
+                                                    try {
+                                                        videoPickerLauncher.launch(arrayOf("video/*"))
+                                                    } catch (e: Exception) {
+                                                        e.printStackTrace()
+                                                    }
+                                                },
+                                                shape = RoundedCornerShape(6.dp),
+                                                colors = ButtonDefaults.buttonColors(containerColor = colors.border),
+                                                modifier = Modifier.height(28.dp).weight(1f),
+                                                contentPadding = PaddingValues(0.dp)
+                                            ) {
+                                                Text(if (isEnglish) "Choose Video" else "选择本地视频", fontSize = 10.sp, color = colors.textPrimary)
+                                            }
+                                            if (videoUriPortraitStr != null) {
+                                                Button(
+                                                    onClick = { viewModel.setVideoUriPortrait(null) },
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
+                                                    modifier = Modifier.height(28.dp).weight(1f),
+                                                    contentPadding = PaddingValues(0.dp)
+                                                ) {
+                                                    Text(if (isEnglish) "Reset" else "恢复默认", fontSize = 10.sp, color = Color.White)
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    // Landscape video path pick
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(colors.cardBackground, RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    ) {
+                                        Text(
+                                            text = if (isEnglish) "Landscape MP4 Background File" else "🖥️ 横屏态渲染背景视频",
+                                            color = colors.textPrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = videoUriLandscapeStr ?: (if (isEnglish) "(Default tech environment background)" else "(未配置 - 默认使用硬核技术粒子星空动效)"),
+                                            color = if (videoUriLandscapeStr != null) colors.accentSecondary else colors.textSecondary.copy(alpha = 0.5f),
+                                            fontSize = 9.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Button(
+                                                onClick = {
+                                                    targetPickerIsPortrait = false
+                                                    try {
+                                                        videoPickerLauncher.launch(arrayOf("video/*"))
+                                                    } catch (e: Exception) {
+                                                        e.printStackTrace()
+                                                    }
+                                                },
+                                                shape = RoundedCornerShape(6.dp),
+                                                colors = ButtonDefaults.buttonColors(containerColor = colors.border),
+                                                modifier = Modifier.height(28.dp).weight(1f),
+                                                contentPadding = PaddingValues(0.dp)
+                                            ) {
+                                                Text(if (isEnglish) "Choose Video" else "选择本地视频", fontSize = 10.sp, color = colors.textPrimary)
+                                            }
+                                            if (videoUriLandscapeStr != null) {
+                                                Button(
+                                                    onClick = { viewModel.setVideoUriLandscape(null) },
+                                                    shape = RoundedCornerShape(6.dp),
+                                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
+                                                    modifier = Modifier.height(28.dp).weight(1f),
+                                                    contentPadding = PaddingValues(0.dp)
+                                                ) {
+                                                    Text(if (isEnglish) "Reset" else "恢复默认", fontSize = 10.sp, color = Color.White)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            // 4. Voice Interaction card
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, colors.border)
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Info, null, tint = colors.accent, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (isEnglish) "Voice Wake-up & Interaction" else "声学拾音及语音交互唤醒",
+                                            color = colors.textPrimary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    HorizontalDivider(color = colors.border.copy(alpha = 0.5f), thickness = 1.dp)
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = if (isEnglish) "Edge speech recognition" else "开启板载拾音控制",
+                                                color = colors.textPrimary,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = if (isEnglish) "Listen to vocal 'Open X' wake-ups" else "是否启用边缘语音交互识别通道（关闭大幅省能）",
+                                                color = colors.textSecondary,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                        Switch(
+                                            checked = voiceControlEnabled,
+                                            onCheckedChange = { viewModel.setVoiceControlEnabled(it) },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = colors.success,
+                                                checkedTrackColor = colors.success.copy(alpha = 0.5f)
+                                            )
+                                        )
+                                    }
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    // Render voice monitor info
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .background(colors.cardBackground, RoundedCornerShape(10.dp))
+                                            .padding(10.dp)
+                                    ) {
+                                        Text(
+                                            text = if (isEnglish) "Vocal Signal wave & State Monitor:" else "🔬 物理拾音状态与分贝能量流：",
+                                            color = colors.textPrimary,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                            Text(
+                                                text = if (voiceControlEnabled) {
+                                                    if (voiceState is VoiceState.Listening) (if (isEnglish) "Microphone: SPEAKING" else "音频状态: 【拾音中】")
+                                                    else (if (isEnglish) "Microphone: IDLE" else "音频状态: 【冷空静默检测】")
+                                                } else {
+                                                    if (isEnglish) "Microphone: POWER OFF" else "音频状态: 【服务被玩家关闭】"
+                                                },
+                                                color = if (voiceControlEnabled) colors.accentSecondary else colors.textSecondary,
+                                                fontSize = 10.sp
+                                            )
+                                            Text(
+                                                text = String.format("RMS: %.1f dB", rmsLevel),
+                                                color = colors.accent,
+                                                fontSize = 10.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                fontFamily = FontFamily.Monospace
+                                            )
+                                        }
+                                        
+                                        Spacer(modifier = Modifier.height(6.dp))
+                                        
+                                        // Visual progress gauge for sound level
+                                        LinearProgressIndicator(
+                                            progress = { (rmsLevel.coerceIn(0f, 30f) / 30f) },
+                                            modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)),
+                                            color = if (voiceState is VoiceState.Listening) colors.success else colors.accent.copy(alpha = 0.4f),
+                                            trackColor = colors.border
+                                        )
+
+                                        Spacer(modifier = Modifier.height(6.dp))
+
+                                        Text(
+                                            text = if (isEnglish) "Speech Match Log:" else "📋 声控行为寻得日志：",
+                                            color = colors.textPrimary,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Text(
+                                            text = actionLog.ifEmpty { (if (isEnglish) "Waiting for speech signal..." else "尚未拦截到有效的打开语音控制流。") },
+                                            color = if (actionLog.contains("寻径") || actionLog.contains("Launch")) colors.success else colors.textSecondary,
+                                            fontSize = 9.sp,
+                                            fontFamily = FontFamily.Monospace,
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                }
+                            }
+
+                            // 5. Time Calibration setting Card
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = colors.surface),
+                                shape = RoundedCornerShape(16.dp),
+                                border = BorderStroke(1.dp, colors.border)
+                            ) {
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Default.Settings, null, tint = colors.accent, modifier = Modifier.size(18.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = if (isEnglish) "Clock Time Correction" else "系统时钟同步与手动校准",
+                                            color = colors.textPrimary,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    HorizontalDivider(color = colors.border.copy(alpha = 0.5f), thickness = 1.dp)
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = if (isEnglish) "Network NTP Auto-Sync" else "自动云端同步时间",
+                                                color = colors.textPrimary,
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                text = if (isEnglish) "Auto fetch standard network baseline" else "自动通过联网对齐标准网卡时间基准线",
+                                                color = colors.textSecondary,
+                                                fontSize = 10.sp
+                                            )
+                                        }
+                                        Switch(
+                                            checked = useSystemTime,
+                                            onCheckedChange = { viewModel.setUseSystemTime(it) },
+                                            colors = SwitchDefaults.colors(
+                                                checkedThumbColor = colors.success,
+                                                checkedTrackColor = colors.success.copy(alpha = 0.5f)
+                                            )
+                                        )
+                                    }
+
+                                    if (!useSystemTime) {
+                                        Spacer(modifier = Modifier.height(12.dp))
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = if (isEnglish) "Manual Calibrate Hours" else "手动定点时差微调",
+                                                    color = colors.textPrimary,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.Medium
+                                                )
+                                                Text(
+                                                    text = if (isEnglish) "Specify offset time to display custom dial" else "自定义一个固定差值，满足内网无网络需求",
+                                                    color = colors.textSecondary,
+                                                    fontSize = 10.sp
+                                                )
+                                            }
+                                            Button(
+                                                onClick = { showManualTimePicker = true },
+                                                colors = ButtonDefaults.buttonColors(containerColor = colors.border),
+                                                shape = RoundedCornerShape(8.dp),
+                                                modifier = Modifier.height(36.dp)
+                                            ) {
+                                                Text(if (isEnglish) "Set Time" else "手动校置时间", fontSize = 11.sp, color = colors.textPrimary)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
 
-                        // Right Pane: Control Tabs with binding, hardware info, system specs
+                        // Right Pane: Separate Bindings & Hardware Diagnostic tabs
                         TabsContainerCard(
-                            appMappings, viewModel, selectedSlotForMapping, showAppSelector,
-                            { selectedSlotForMapping = it; showAppSelector = true },
-                            colors, isEnglish, context, modifier = Modifier.weight(1.8f).fillMaxHeight()
+                            appMappings = appMappings,
+                            viewModel = viewModel,
+                            selectedSlotForMapping = selectedSlotForMapping,
+                            showAppSelector = showAppSelector,
+                            onOpenSelector = { selectedSlotForMapping = it; showAppSelector = true },
+                            colors = colors,
+                            isEnglish = isEnglish,
+                            context = context,
+                            modifier = Modifier.weight(1.3f).fillMaxHeight()
                         )
                     }
                 } else {
-                    // Portrait stacked list screen
+                    // Portrait stacked list screen (highly prioritized vertically)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .weight(1f),
+                            .weight(1f)
+                            .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Stacking clock and voice level analyzer compactly as two separate columns/rows
                         ClockInfoCard(timeStr, dateStr, weekStr, colors, isEnglish, clockColor = clockColor, dateColor = dateColor)
-                        VoiceControlCompactCard(
-                            voiceState = voiceState,
-                            actionLog = actionLog,
+
+                        // Standalone Option: Display Direction Rotation
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = colors.surface),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, colors.border)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                                    Text(
+                                        text = if (isEnglish) "Device Layout Rotation" else "屏幕显示方向：切换横竖屏",
+                                        color = colors.textPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(
+                                        text = if (isEnglish) "Rotates layout canvas immediately" else "一键重设横板/竖板绘图适配",
+                                        color = colors.textSecondary,
+                                        fontSize = 10.sp
+                                    )
+                                }
+                                Button(
+                                    onClick = onToggleOrientation,
+                                    colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.Refresh, null, tint = if (colors.isDark) Color.Black else Color.White, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = if (isEnglish) "Toggle Screen Orientation" else "一键旋转",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 11.sp,
+                                        color = if (colors.isDark) Color.Black else Color.White
+                                    )
+                                }
+                            }
+                        }
+
+                        // Compact Switch Options (Seconds, Video backing, Auto Time, Voice Toggle) in a single card
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = colors.surface),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, colors.border)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(
+                                    text = if (isEnglish) "Feature Configuration Switches" else "基础板载功能项开关",
+                                    color = colors.textPrimary,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 13.sp
+                                )
+                                HorizontalDivider(color = colors.border.copy(alpha = 0.5f), thickness = 1.dp)
+
+                                // Seconds
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(if (isEnglish) "Show Clock Seconds" else "时钟大屏显示秒数", color = colors.textPrimary, fontSize = 12.sp)
+                                    Switch(
+                                        checked = showSeconds,
+                                        onCheckedChange = { viewModel.setShowSeconds(it) },
+                                        colors = SwitchDefaults.colors(checkedThumbColor = colors.success, checkedTrackColor = colors.success.copy(alpha = 0.5f))
+                                    )
+                                }
+
+                                // Video backing
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(if (isEnglish) "Enable Video Wallpaper" else "启用大屏动效背景", color = colors.textPrimary, fontSize = 12.sp)
+                                    Switch(
+                                        checked = showVideoBackground,
+                                        onCheckedChange = { viewModel.setShowVideoBackground(it) },
+                                        colors = SwitchDefaults.colors(checkedThumbColor = colors.success, checkedTrackColor = colors.success.copy(alpha = 0.5f))
+                                    )
+                                }
+
+                                // Voice Control toggle
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(if (isEnglish) "Speech Service Wake-up" else "开启板卡语音交互唤醒", color = colors.textPrimary, fontSize = 12.sp)
+                                    Switch(
+                                        checked = voiceControlEnabled,
+                                        onCheckedChange = { viewModel.setVoiceControlEnabled(it) },
+                                        colors = SwitchDefaults.colors(checkedThumbColor = colors.success, checkedTrackColor = colors.success.copy(alpha = 0.5f))
+                                    )
+                                }
+
+                                // NTP sync
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(if (isEnglish) "Network Sync NTP" else "自适应在线时间同步", color = colors.textPrimary, fontSize = 12.sp)
+                                    Switch(
+                                        checked = useSystemTime,
+                                        onCheckedChange = { viewModel.setUseSystemTime(it) },
+                                        colors = SwitchDefaults.colors(checkedThumbColor = colors.success, checkedTrackColor = colors.success.copy(alpha = 0.5f))
+                                    )
+                                }
+
+                                if (!useSystemTime) {
+                                    Button(
+                                        onClick = { showManualTimePicker = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = colors.border),
+                                        shape = RoundedCornerShape(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Text(if (isEnglish) "Manual Calibrate Time" else "手动点击定时差校准时间", fontSize = 11.sp, color = colors.textPrimary)
+                                    }
+                                }
+                            }
+                        }
+
+                        // Background MP4 Video File Setup Card
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = colors.surface),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, colors.border)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(
+                                    text = if (isEnglish) "Live MP4 video mappings" else "横视 / 竖视频动态背景路径设定",
+                                    color = colors.textPrimary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                HorizontalDivider(color = colors.border.copy(alpha = 0.5f), thickness = 1.dp)
+
+                                Text(if (isEnglish) "📱 Portrait Video:" else "📱 竖直大屏运行背景：", fontSize = 11.sp, color = colors.textPrimary, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = videoUriPortraitStr ?: (if (isEnglish) "Pure black" else "默认深纯黑色节能背景"),
+                                    fontSize = 9.sp,
+                                    color = colors.textSecondary,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = {
+                                            targetPickerIsPortrait = true
+                                            try { videoPickerLauncher.launch(arrayOf("video/*")) } catch (e: Exception) { e.printStackTrace() }
+                                        },
+                                        shape = RoundedCornerShape(6.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = colors.border),
+                                        modifier = Modifier.weight(1f).height(30.dp),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Text(if (isEnglish) "Choose File" else "自选MP4", fontSize = 10.sp, color = colors.textPrimary)
+                                    }
+                                    if (videoUriPortraitStr != null) {
+                                        Button(
+                                            onClick = { viewModel.setVideoUriPortrait(null) },
+                                            shape = RoundedCornerShape(6.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
+                                            modifier = Modifier.weight(1f).height(30.dp),
+                                            contentPadding = PaddingValues(0.dp)
+                                        ) {
+                                            Text(if (isEnglish) "Reset" else "恢复默认", fontSize = 10.sp, color = Color.White)
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                Text(if (isEnglish) "🖥️ Landscape Video:" else "🖥️ 横置大屏运行背景：", fontSize = 11.sp, color = colors.textPrimary, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = videoUriLandscapeStr ?: (if (isEnglish) "System visualizer" else "系统技术粒子动态太空背景"),
+                                    fontSize = 9.sp,
+                                    color = colors.textSecondary,
+                                    fontFamily = FontFamily.Monospace,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = {
+                                            targetPickerIsPortrait = false
+                                            try { videoPickerLauncher.launch(arrayOf("video/*")) } catch (e: Exception) { e.printStackTrace() }
+                                        },
+                                        shape = RoundedCornerShape(6.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = colors.border),
+                                        modifier = Modifier.weight(1f).height(30.dp),
+                                        contentPadding = PaddingValues(0.dp)
+                                    ) {
+                                        Text(if (isEnglish) "Choose File" else "自选MP4", fontSize = 10.sp, color = colors.textPrimary)
+                                    }
+                                    if (videoUriLandscapeStr != null) {
+                                        Button(
+                                            onClick = { viewModel.setVideoUriLandscape(null) },
+                                            shape = RoundedCornerShape(6.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFC62828)),
+                                            modifier = Modifier.weight(1f).height(30.dp),
+                                            contentPadding = PaddingValues(0.dp)
+                                        ) {
+                                            Text(if (isEnglish) "Reset" else "恢复默认", fontSize = 10.sp, color = Color.White)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Combined application packaging mapping list & motherboard sensor diagnostics
+                        TabsContainerCard(
+                            appMappings = appMappings,
+                            viewModel = viewModel,
+                            selectedSlotForMapping = selectedSlotForMapping,
+                            showAppSelector = showAppSelector,
+                            onOpenSelector = { selectedSlotForMapping = it; showAppSelector = true },
                             colors = colors,
                             isEnglish = isEnglish,
-                            voiceControlEnabled = voiceControlEnabled,
-                            onToggleVoice = onToggleVoice,
-                            onToggleVoiceControl = { viewModel.setVoiceControlEnabled(it) }
-                        )
-
-                        // Bottom Workspace Tabs filling up the remaining room
-                        TabsContainerCard(
-                            appMappings, viewModel, selectedSlotForMapping, showAppSelector,
-                            { selectedSlotForMapping = it; showAppSelector = true },
-                            colors, isEnglish, context, modifier = Modifier.fillMaxWidth().weight(1f)
+                            context = context,
+                            modifier = Modifier.fillMaxWidth().height(480.dp)
                         )
                     }
                 }
             }
+        }
+
+        // Show manual calibrator if requested
+        if (showManualTimePicker) {
+            ManualSystemTimePickerDialog(
+                isEnglish = isEnglish,
+                colors = colors,
+                onSaveTime = { h, m, s -> viewModel.setCustomTime(h, m, s) },
+                onDismiss = { showManualTimePicker = false }
+            )
         }
     }
 
@@ -3196,4 +3795,156 @@ fun VideoBackgroundPlayer(
         },
         modifier = modifier
     )
+}
+
+@Composable
+fun ManualSystemTimePickerDialog(
+    isEnglish: Boolean,
+    colors: ThemeColors,
+    onSaveTime: (Int, Int, Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var hour by remember { mutableStateOf(12) }
+    var minute by remember { mutableStateOf(0) }
+    var second by remember { mutableStateOf(0) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .widthIn(max = 400.dp)
+                .fillMaxWidth()
+                .padding(24.dp),
+            colors = CardDefaults.cardColors(containerColor = colors.surface),
+            shape = RoundedCornerShape(20.dp),
+            border = BorderStroke(1.dp, colors.border)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = if (isEnglish) "Manual Clock Calibration" else "时分秒定点时间偏差微调",
+                    color = colors.textPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = if (isEnglish) "Calibrate standard time on standalone devices" else "在无外网NTP同步的独立运行设备下微调本地时显",
+                    color = colors.textSecondary,
+                    fontSize = 11.sp,
+                    textAlign = TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(20.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(if (isEnglish) "Hours" else "时", color = colors.accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { hour = if (hour > 0) hour - 1 else 23 }) {
+                                Text("-", fontSize = 20.sp, color = colors.textPrimary)
+                            }
+                            Text(
+                                text = String.format("%02d", hour),
+                                color = colors.textPrimary,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            IconButton(onClick = { hour = if (hour < 23) hour + 1 else 0 }) {
+                                Text("+", fontSize = 20.sp, color = colors.textPrimary)
+                            }
+                        }
+                    }
+
+                    Text(":", fontSize = 24.sp, color = colors.textSecondary, fontWeight = FontWeight.Bold)
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(if (isEnglish) "Minutes" else "分", color = colors.accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { minute = if (minute > 0) minute - 1 else 59 }) {
+                                Text("-", fontSize = 20.sp, color = colors.textPrimary)
+                            }
+                            Text(
+                                text = String.format("%02d", minute),
+                                color = colors.textPrimary,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            IconButton(onClick = { minute = if (minute < 59) minute + 1 else 0 }) {
+                                Text("+", fontSize = 20.sp, color = colors.textPrimary)
+                            }
+                        }
+                    }
+
+                    Text(":", fontSize = 24.sp, color = colors.textSecondary, fontWeight = FontWeight.Bold)
+
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(if (isEnglish) "Seconds" else "秒", color = colors.accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { second = if (second > 0) second - 1 else 59 }) {
+                                Text("-", fontSize = 20.sp, color = colors.textPrimary)
+                            }
+                            Text(
+                                text = String.format("%02d", second),
+                                color = colors.textPrimary,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = FontFamily.Monospace
+                            )
+                            IconButton(onClick = { second = if (second < 59) second + 1 else 0 }) {
+                                Text("+", fontSize = 20.sp, color = colors.textPrimary)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Button(
+                        onClick = onDismiss,
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.cardBackground),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(if (isEnglish) "Cancel" else "取消放弃", color = colors.textPrimary, fontSize = 13.sp)
+                    }
+                    Button(
+                        onClick = {
+                            onSaveTime(hour, minute, second)
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.accent),
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text(
+                            text = if (isEnglish) "Apply" else "应用时偏校准",
+                            color = if (colors.isDark) Color.Black else Color.White,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
