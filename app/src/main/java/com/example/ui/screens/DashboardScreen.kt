@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -384,9 +386,6 @@ fun DashboardScreen(
                     .align(Alignment.BottomCenter)
                     .padding(bottom = if (showColorTunePanel) 140.dp else 24.dp)
                     .padding(horizontal = 16.dp)
-                    .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(20.dp))
-                    .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -395,14 +394,14 @@ fun DashboardScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // 1. Timer / Countdown Button
+                    // 1. Timer / Countdown Button (Always first)
                     Button(
                         onClick = {
                             countdownSeconds = if (countdownSeconds <= 0) 300 else countdownSeconds + 300
                         },
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (countdownSeconds > 0) Color(0xFF2E7D32) else Color.White.copy(alpha = 0.12f),
+                            containerColor = Color.White.copy(alpha = 0.12f),
                             contentColor = Color.White
                         ),
                         modifier = Modifier
@@ -433,7 +432,7 @@ fun DashboardScreen(
                             onClick = { countdownSeconds = 0 },
                             shape = RoundedCornerShape(12.dp),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFC62828),
+                                containerColor = Color.White.copy(alpha = 0.12f),
                                 contentColor = Color.White
                             ),
                             modifier = Modifier
@@ -454,12 +453,39 @@ fun DashboardScreen(
                         }
                     }
 
-                    // 2. Toggle Video Background
+                    // 2. Open Bound App 1 (Placed second)
+                    val slot1Mapping = appMappings.find { it.slot == 1 }
+                    val slot1Label = slot1Mapping?.appName ?: (if (isEnglish) "Bound App 1" else "绑定应用1")
+                    Button(
+                        onClick = { viewModel.triggerAppLaunchBySlot(1) },
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color.White.copy(alpha = 0.12f),
+                            contentColor = Color.White
+                        ),
+                        modifier = Modifier
+                            .height(50.dp)
+                            .testTag("big_btn_launch_app")
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Share,
+                            contentDescription = "Launch App 1",
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = if (isEnglish) "Open: $slot1Label" else "打开: $slot1Label",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        )
+                    }
+
+                    // 3. Toggle Video Background (Unified to default color)
                     Button(
                         onClick = { viewModel.setShowVideoBackground(!showVideoBackground) },
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (showVideoBackground) Color(0xFF1565C0) else Color(0xFFD84315),
+                            containerColor = Color.White.copy(alpha = 0.12f),
                             contentColor = Color.White
                         ),
                         modifier = Modifier
@@ -483,12 +509,12 @@ fun DashboardScreen(
                         )
                     }
 
-                    // 3. Tune Colors Page
+                    // 4. Tune Colors Page (Unified active color to subtle transparent white pop)
                     Button(
                         onClick = { showColorTunePanel = !showColorTunePanel },
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = if (showColorTunePanel) colors.accent else Color.White.copy(alpha = 0.12f),
+                            containerColor = if (showColorTunePanel) Color.White.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.12f),
                             contentColor = Color.White
                         ),
                         modifier = Modifier
@@ -502,34 +528,7 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isEnglish) "Tune Colors" else "大屏时空调色",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        )
-                    }
-
-                    // 4. Open Bound App 1
-                    val slot1Mapping = appMappings.find { it.slot == 1 }
-                    val slot1Label = slot1Mapping?.appName ?: (if (isEnglish) "Bound App 1" else "绑定应用1")
-                    Button(
-                        onClick = { viewModel.triggerAppLaunchBySlot(1) },
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color.White.copy(alpha = 0.12f),
-                            contentColor = Color.White
-                        ),
-                        modifier = Modifier
-                            .height(50.dp)
-                            .testTag("big_btn_launch_app")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Share,
-                            contentDescription = "Launch App 1",
-                            modifier = Modifier.size(18.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = if (isEnglish) "Open: $slot1Label" else "打开: $slot1Label",
+                            text = if (isEnglish) "Tune Colors" else "时钟字体调色",
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
                         )
@@ -560,7 +559,7 @@ fun DashboardScreen(
                         )
                     }
 
-                    // 6. Settings Security Unlock Button
+                    // 6. Settings Security Unlock Button (Unified to default color)
                     Button(
                         onClick = {
                             passwordInput = ""
@@ -569,7 +568,7 @@ fun DashboardScreen(
                         },
                         shape = RoundedCornerShape(12.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFEF6C00),
+                            containerColor = Color.White.copy(alpha = 0.12f),
                             contentColor = Color.White
                         ),
                         modifier = Modifier
@@ -583,7 +582,7 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = if (isEnglish) "Console Setup" else "安全系统设置",
+                            text = if (isEnglish) "Console Setup" else "系统设置",
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
                         )
@@ -593,6 +592,17 @@ fun DashboardScreen(
 
             // Fixed password unlock dialog
             if (showPasswordDialog) {
+                val passwordFocusRequester = remember { FocusRequester() }
+                var passwordVisible by remember { mutableStateOf(false) }
+                LaunchedEffect(Unit) {
+                    kotlinx.coroutines.delay(150L) // Wait for the dialog to settle
+                    try {
+                        passwordFocusRequester.requestFocus()
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
+                }
+
                 AlertDialog(
                     onDismissRequest = { showPasswordDialog = false },
                     title = {
@@ -619,10 +629,26 @@ fun DashboardScreen(
                                 placeholder = { Text(if (isEnglish) "Enter password..." else "请输入安全密码...") },
                                 singleLine = true,
                                 isError = passwordError,
-                                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                                visualTransformation = if (passwordVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
                                 keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                                     keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
                                 ),
+                                trailingIcon = {
+                                    val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                                    val description = if (passwordVisible) {
+                                        if (isEnglish) "Hide password" else "隐藏密码"
+                                    } else {
+                                        if (isEnglish) "Show password" else "显示密码"
+                                    }
+                                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                        Icon(
+                                            imageVector = image,
+                                            contentDescription = description,
+                                            tint = Color.White.copy(alpha = 0.7f),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedTextColor = Color.White,
                                     unfocusedTextColor = Color.White,
@@ -632,7 +658,9 @@ fun DashboardScreen(
                                     unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
                                     errorBorderColor = Color.Red
                                 ),
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(passwordFocusRequester)
                             )
                             if (passwordError) {
                                 Text(
@@ -656,7 +684,7 @@ fun DashboardScreen(
                             },
                             colors = ButtonDefaults.buttonColors(containerColor = colors.accent)
                         ) {
-                            Text(if (isEnglish) "Confirm" else "确认", color = Color.White)
+                            Text(if (isEnglish) "Confirm" else "确认", color = if (colors.isDark) Color.Black else Color.White)
                         }
                     },
                     dismissButton = {
@@ -847,7 +875,7 @@ fun DashboardScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = if (isEnglish) "EDGE BOARD INTEGRATED CONTROL" else "边缘自适应工业级显示及语音交互底座",
+                            text = if (isEnglish) "INTEGRATED CONTROL" else "语音交互底座",
                             color = colors.accent,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -855,7 +883,7 @@ fun DashboardScreen(
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = if (isEnglish) "System settings & console dashboard" else "系统控制与边缘控制台",
+                            text = if (isEnglish) "System settings" else "调试工作台",
                             color = colors.textPrimary,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.SemiBold,
