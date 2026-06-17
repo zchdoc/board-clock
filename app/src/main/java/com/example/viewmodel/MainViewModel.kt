@@ -254,10 +254,44 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _searchQuery.value = query
     }
 
-    fun bindAppToSlot(slot: Int, packageName: String, appName: String) {
+    // Locked app launch flow
+    private val _pendingAppLaunch = MutableStateFlow<AppMapping?>(null)
+    val pendingAppLaunch: StateFlow<AppMapping?> = _pendingAppLaunch.asStateFlow()
+
+    fun clearPendingAppLaunch() {
+        _pendingAppLaunch.value = null
+    }
+
+    fun checkAndLaunchApp(mapping: AppMapping, enteredPassword: String): Boolean {
+        if (mapping.password == enteredPassword) {
+            _pendingAppLaunch.value = null
+            launchApp(mapping.packageName, mapping.appName)
+            return true
+        }
+        return false
+    }
+
+    fun bindAppToSlot(slot: Int, packageName: String, appName: String, password: String = "") {
         viewModelScope.launch {
-            repository.insertMapping(AppMapping(slot = slot, packageName = packageName, appName = appName))
+            val existing = appMappings.value.find { it.slot == slot }
+            val pwd = existing?.password ?: password
+            repository.insertMapping(AppMapping(slot = slot, packageName = packageName, appName = appName, password = pwd))
             _lastActionLog.value = "配置完成! 已将 [打开 $slot] 关联到: $appName"
+        }
+    }
+
+    fun setAppPassword(slot: Int, password: String) {
+        viewModelScope.launch {
+            val mappings = appMappings.value
+            val mapping = mappings.find { it.slot == slot }
+            if (mapping != null) {
+                repository.insertMapping(mapping.copy(password = password))
+                if (_isEnglish.value) {
+                    _lastActionLog.value = "Slot $slot password updated."
+                } else {
+                    _lastActionLog.value = "插槽 $slot 密码已更新。"
+                }
+            }
         }
     }
 
@@ -273,7 +307,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             val mappings = appMappings.value
             val mapping = mappings.find { it.slot == slot }
             if (mapping != null) {
-                launchApp(mapping.packageName, mapping.appName)
+                if (mapping.password.isNotEmpty()) {
+                    _pendingAppLaunch.value = mapping
+                } else {
+                    launchApp(mapping.packageName, mapping.appName)
+                }
             } else {
                 _lastActionLog.value = "唤醒失败！系统快响槽 [打开 $slot] 尚未指代任何应用。"
             }

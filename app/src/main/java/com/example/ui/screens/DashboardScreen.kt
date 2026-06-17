@@ -194,6 +194,7 @@ fun DashboardScreen(
     val actionLog by viewModel.lastActionLog.collectAsStateWithLifecycle()
     val rmsLevel by viewModel.rmsLevel.collectAsStateWithLifecycle()
     val appMappings by viewModel.appMappings.collectAsStateWithLifecycle()
+    val pendingAppLaunch by viewModel.pendingAppLaunch.collectAsStateWithLifecycle()
 
     // Dynamic Time tick
     var currentTimeMillis by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -1722,6 +1723,135 @@ fun DashboardScreen(
             }
         )
     }
+
+    // Modal verification dialog for app lock (accidental clicks / child lock)
+    pendingAppLaunch?.let { mapping ->
+        var passwordInput by remember { mutableStateOf("") }
+        var passwordError by remember { mutableStateOf(false) }
+        var passwordVisible by remember { mutableStateOf(false) }
+        val focusRequester = remember { FocusRequester() }
+
+        LaunchedEffect(mapping) {
+            kotlinx.coroutines.delay(150L) // Settle the dialog
+            try {
+                focusRequester.requestFocus()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        AlertDialog(
+            onDismissRequest = { viewModel.clearPendingAppLaunch() },
+            title = {
+                Text(
+                    text = if (isEnglish) "App Launch Verification" else "开启应用认证",
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+            },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = if (isEnglish) {
+                            "To launch ${mapping.appName}, please enter its secure password:"
+                        } else {
+                            "启动指代应用【${mapping.appName}】需要验证密码，以防止误触或儿童使用："
+                        },
+                        color = colors.textSecondary,
+                        fontSize = 14.sp
+                    )
+                    OutlinedTextField(
+                        value = passwordInput,
+                        onValueChange = {
+                            passwordInput = it
+                            passwordError = false
+                        },
+                        placeholder = { 
+                            Text(
+                                if (isEnglish) "Enter app password..." else "请输入应用安全密码...",
+                                color = colors.textSecondary.copy(alpha = 0.5f)
+                            ) 
+                        },
+                        singleLine = true,
+                        isError = passwordError,
+                        visualTransformation = if (passwordVisible) {
+                            androidx.compose.ui.text.input.VisualTransformation.None
+                        } else {
+                            androidx.compose.ui.text.input.PasswordVisualTransformation()
+                        },
+                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                            keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                        ),
+                        trailingIcon = {
+                            val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                            val description = if (passwordVisible) {
+                                if (isEnglish) "Hide password" else "隐藏密码"
+                            } else {
+                                if (isEnglish) "Show password" else "显示密码"
+                            }
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = image,
+                                    contentDescription = description,
+                                    tint = colors.textSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = colors.textPrimary,
+                            unfocusedTextColor = colors.textPrimary,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            errorTextColor = Color.Red,
+                            focusedBorderColor = colors.accent,
+                            unfocusedBorderColor = colors.border,
+                            errorBorderColor = Color.Red
+                        ),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester)
+                    )
+                    if (passwordError) {
+                        Text(
+                            text = if (isEnglish) "Incorrect password!" else "安全密码不正确，请重新输入！",
+                            color = Color.Red,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val verified = viewModel.checkAndLaunchApp(mapping, passwordInput)
+                        if (!verified) {
+                            passwordError = true
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = colors.accent)
+                ) {
+                    Text(
+                        if (isEnglish) "Confirm" else "确认", 
+                        color = if (colors.isDark) Color.Black else Color.White
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.clearPendingAppLaunch() }) {
+                    Text(
+                        if (isEnglish) "Cancel" else "取消", 
+                        color = colors.textSecondary
+                    )
+                }
+            },
+            containerColor = colors.surface,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.widthIn(max = 320.dp)
+        )
+    }
 }
 
 // ---------------------- SUB-COMPOSABLES ----------------------
@@ -2125,6 +2255,8 @@ fun TabsContainerCard(
     context: Context,
     modifier: Modifier
 ) {
+    var slotForPasswordConfig by remember { mutableStateOf<Int?>(null) }
+
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = colors.surface),
@@ -2180,12 +2312,125 @@ fun TabsContainerCard(
                         onBindClick = onOpenSelector,
                         onUnbindClick = { slot ->
                             viewModel.unbindSlot(slot)
+                        },
+                        onSetPasswordClick = { slot ->
+                            slotForPasswordConfig = slot
                         }
                     )
                     1 -> HardwareDetectTab(context = context, isEnglish = isEnglish, colors = colors)
                     2 -> SystemDetectTab(context = context, isEnglish = isEnglish, colors = colors)
                 }
             }
+        }
+    }
+
+    // App Lock custom settings dialog
+    slotForPasswordConfig?.let { slot ->
+        val mapping = appMappings.find { it.slot == slot }
+        if (mapping != null) {
+            var newPassword by remember { mutableStateOf(mapping.password) }
+            var passwordVisible by remember { mutableStateOf(false) }
+
+            AlertDialog(
+                onDismissRequest = { slotForPasswordConfig = null },
+                title = {
+                    Text(
+                        text = if (isEnglish) "App Lock Settings (Slot $slot)" else "应用密码锁设置 (插槽 $slot)",
+                        color = colors.textPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp
+                    )
+                },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = if (isEnglish) {
+                                "App: ${mapping.appName}\nSet a safety password for this shortcut to prevent children's accidental clicks."
+                            } else {
+                                "关联应用: ${mapping.appName}\n为该系统指令设置密码，可有效防止误触及儿童乱点。"
+                            },
+                            color = colors.textSecondary,
+                            fontSize = 13.sp
+                        )
+                        OutlinedTextField(
+                            value = newPassword,
+                            onValueChange = { input ->
+                                // Numeric only and max 12 chars
+                                if (input.all { it.isDigit() } && input.length <= 12) {
+                                    newPassword = input
+                                }
+                            },
+                            label = { Text(if (isEnglish) "Password (digits only)" else "安全密码 (仅限数字)") },
+                            placeholder = { Text(if (isEnglish) "Empty implies no lock" else "留空表示不设置密码锁") },
+                            singleLine = true,
+                            visualTransformation = if (passwordVisible) {
+                                androidx.compose.ui.text.input.VisualTransformation.None
+                            } else {
+                                androidx.compose.ui.text.input.PasswordVisualTransformation()
+                            },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                            ),
+                            trailingIcon = {
+                                val image = if (passwordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff
+                                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                    Icon(
+                                        imageVector = image,
+                                        contentDescription = null,
+                                        tint = colors.textSecondary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = colors.textPrimary,
+                                unfocusedTextColor = colors.textPrimary,
+                                focusedBorderColor = colors.accent,
+                                unfocusedBorderColor = colors.border
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                },
+                confirmButton = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (mapping.password.isNotEmpty()) {
+                            TextButton(
+                                onClick = {
+                                    viewModel.setAppPassword(slot, "")
+                                    slotForPasswordConfig = null
+                                }
+                            ) {
+                                Text(
+                                    if (isEnglish) "Remove Lock" else "清除限锁",
+                                    color = Color.Red,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.setAppPassword(slot, newPassword)
+                                slotForPasswordConfig = null
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = colors.accent)
+                        ) {
+                            Text(
+                                if (isEnglish) "Save" else "保存",
+                                color = if (colors.isDark) Color.Black else Color.White
+                            )
+                        }
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { slotForPasswordConfig = null }) {
+                        Text(if (isEnglish) "Cancel" else "取消", color = colors.textSecondary)
+                    }
+                },
+                containerColor = colors.surface,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.widthIn(max = 330.dp)
+            )
         }
     }
 }
@@ -2197,7 +2442,8 @@ fun BindingsTab(
     isEnglish: Boolean,
     colors: ThemeColors,
     onBindClick: (Int) -> Unit,
-    onUnbindClick: (Int) -> Unit
+    onUnbindClick: (Int) -> Unit,
+    onSetPasswordClick: (Int) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -2249,7 +2495,7 @@ fun BindingsTab(
 
                         Spacer(modifier = Modifier.width(10.dp))
 
-                        Column {
+                        Column(modifier = Modifier.weight(1f)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
                                     text = if (isEnglish) "Voice word: " else "语音指令: ",
@@ -2267,14 +2513,33 @@ fun BindingsTab(
                             Spacer(modifier = Modifier.height(2.dp))
 
                             if (mapping != null) {
-                                Text(
-                                    text = mapping.appName,
-                                    color = colors.textPrimary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        text = mapping.appName,
+                                        color = colors.textPrimary,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false)
+                                    )
+                                    if (mapping.password.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Icon(
+                                            imageVector = Icons.Default.Lock,
+                                            contentDescription = "Locked",
+                                            tint = colors.accent,
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(2.dp))
+                                        Text(
+                                            text = if (isEnglish) "Locked" else "已锁",
+                                            color = colors.accent,
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                }
                                 Text(
                                     text = mapping.packageName,
                                     color = colors.textSecondary,
@@ -2294,8 +2559,38 @@ fun BindingsTab(
                         }
                     }
 
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (mapping != null) {
+                            // Password lock icon button
+                            IconButton(
+                                onClick = { onSetPasswordClick(slot) },
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .background(
+                                        if (mapping.password.isNotEmpty()) {
+                                            colors.accent.copy(alpha = 0.15f)
+                                        } else {
+                                            colors.border.copy(alpha = 0.12f)
+                                        },
+                                        CircleShape
+                                    )
+                            ) {
+                                Icon(
+                                    imageVector = if (mapping.password.isNotEmpty()) {
+                                        Icons.Default.Lock
+                                    } else {
+                                        Icons.Default.LockOpen
+                                    },
+                                    contentDescription = "Set Password Lock",
+                                    tint = if (mapping.password.isNotEmpty()) {
+                                        colors.accent
+                                    } else {
+                                        colors.textSecondary.copy(alpha = 0.6f)
+                                    },
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+
                             IconButton(
                                 onClick = { onUnbindClick(slot) },
                                 modifier = Modifier

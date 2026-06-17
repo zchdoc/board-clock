@@ -7,5 +7,6 @@ import androidx.room.PrimaryKey
 data class AppMapping(
     @PrimaryKey val slot: Int, // 0 to 9
     val packageName: String,
-    val appName: String
+    val appName: String,
+    val password: String = ""
 )
