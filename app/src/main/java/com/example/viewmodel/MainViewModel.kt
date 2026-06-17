@@ -85,6 +85,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _showVideoBackground = MutableStateFlow(prefs.getBoolean("show_video_background", true))
     val showVideoBackground: StateFlow<Boolean> = _showVideoBackground.asStateFlow()
 
+    private val _clockStyle = MutableStateFlow(prefs.getString("clock_style", "vertical") ?: "vertical")
+    val clockStyle: StateFlow<String> = _clockStyle.asStateFlow()
+
+    private val _clockFont = MutableStateFlow(prefs.getString("clock_font", "serif") ?: "serif")
+    val clockFont: StateFlow<String> = _clockFont.asStateFlow()
+
     private val _timeOffsetMs = MutableStateFlow(prefs.getLong("time_offset_ms", 0L))
     val timeOffsetMs: StateFlow<Long> = _timeOffsetMs.asStateFlow()
 
@@ -178,6 +184,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setShowVideoBackground(enabled: Boolean) {
         _showVideoBackground.value = enabled
         prefs.edit().putBoolean("show_video_background", enabled).apply()
+    }
+
+    fun setClockStyle(style: String) {
+        _clockStyle.value = style
+        prefs.edit().putString("clock_style", style).apply()
+    }
+
+    fun setClockFont(font: String) {
+        _clockFont.value = font
+        prefs.edit().putString("clock_font", font).apply()
     }
 
     fun setCustomTime(hour: Int, minute: Int, second: Int) {
