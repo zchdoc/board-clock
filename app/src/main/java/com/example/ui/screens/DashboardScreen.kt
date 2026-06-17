@@ -198,6 +198,8 @@ fun DashboardScreen(
     val pendingAppLaunch by viewModel.pendingAppLaunch.collectAsStateWithLifecycle()
     val clockStyle by viewModel.clockStyle.collectAsStateWithLifecycle()
     val clockFont by viewModel.clockFont.collectAsStateWithLifecycle()
+    val clockScaleX by viewModel.clockScaleX.collectAsStateWithLifecycle()
+    val clockScaleY by viewModel.clockScaleY.collectAsStateWithLifecycle()
 
     // Dynamic Time tick
     var currentTimeMillis by remember { mutableStateOf(System.currentTimeMillis()) }
@@ -266,6 +268,7 @@ fun DashboardScreen(
         var showPasswordDialog by remember { mutableStateOf(false) }
         var passwordInput by remember { mutableStateOf("") }
         var passwordError by remember { mutableStateOf(false) }
+        var isEditingScale by remember { mutableStateOf(false) }
 
         // Fullscreen Clock display - Maximized hours, minutes, and seconds, with everything else below
         Box(
@@ -404,37 +407,146 @@ fun DashboardScreen(
                         Spacer(modifier = Modifier.height((maxH * 0.04f).dp))
                     }
 
-                    if (clockStyle == "vertical") {
-                        // 1. Stacked layout - Hour on top, Minute below, elegant letter spacing
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy((-16).dp) // Tightly stacked!
+                    val baseScaleX = if (clockStyle == "stretched") 0.82f else 1.0f
+                    val baseScaleY = if (clockStyle == "stretched") 1.65f else 1.0f
+
+                    val finalScaleX = baseScaleX * clockScaleX
+                    val finalScaleY = baseScaleY * clockScaleY
+
+                    // Calculate the overflow expansion dynamically based on vertical scaling.
+                    // This elegantly prevents overlapping with items above and below the clock.
+                    val estimatedHeightDp = if (clockStyle == "vertical") dynamicFontSize * 2.2f else dynamicFontSize * 1.2f
+                    val overflowHeightY = if (finalScaleY > 1.0f) {
+                        (estimatedHeightDp * (finalScaleY - 1.0f) / 2.0f)
+                    } else {
+                        0.0f
+                    }
+
+                    if (overflowHeightY > 0f) {
+                        Spacer(modifier = Modifier.height(overflowHeightY.dp))
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .wrapContentSize()
+                            .then(
+                                if (isEditingScale) {
+                                    Modifier
+                                        .border(
+                                            width = 1.dp,
+                                            color = Color(0xFF00E5FF).copy(alpha = 0.6f),
+                                            shape = RoundedCornerShape(12.dp)
+                                        )
+                                        .background(Color.White.copy(alpha = 0.05f), RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 24.dp, vertical = 20.dp)
+                                } else {
+                                    Modifier
+                                }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // This scales the clock face
+                        Box(
+                            modifier = Modifier.graphicsLayer(
+                                scaleX = finalScaleX,
+                                scaleY = finalScaleY
+                            ),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Text(
-                                text = hourText,
-                                color = clockColor,
-                                fontSize = dynamicFontSize.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = clockFontFamily,
-                                textAlign = TextAlign.Center,
-                                maxLines = 1,
-                                softWrap = false,
-                                style = androidx.compose.ui.text.TextStyle(
-                                    letterSpacing = (-4).sp,
-                                    shadow = androidx.compose.ui.graphics.Shadow(
-                                        color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
-                                        offset = androidx.compose.ui.geometry.Offset(2f, 2f),
-                                        blurRadius = 6f
+                            if (clockStyle == "vertical") {
+                                // 1. Stacked layout - Hour on top, Minute below, elegant letter spacing
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy((-16).dp) // Tightly stacked!
+                                ) {
+                                    Text(
+                                        text = hourText,
+                                        color = clockColor,
+                                        fontSize = dynamicFontSize.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        fontFamily = clockFontFamily,
+                                        textAlign = TextAlign.Center,
+                                        maxLines = 1,
+                                        softWrap = false,
+                                        style = androidx.compose.ui.text.TextStyle(
+                                            letterSpacing = (-4).sp,
+                                            shadow = androidx.compose.ui.graphics.Shadow(
+                                                color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
+                                                offset = androidx.compose.ui.geometry.Offset(2f, 2f),
+                                                blurRadius = 6f
+                                            )
+                                        )
+                                    )
+
+                                    Row(
+                                        verticalAlignment = Alignment.Bottom,
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Text(
+                                            text = minText,
+                                            color = clockColor,
+                                            fontSize = dynamicFontSize.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            fontFamily = clockFontFamily,
+                                            textAlign = TextAlign.Center,
+                                            maxLines = 1,
+                                            softWrap = false,
+                                            style = androidx.compose.ui.text.TextStyle(
+                                                letterSpacing = (-4).sp,
+                                                shadow = androidx.compose.ui.graphics.Shadow(
+                                                    color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
+                                                    offset = androidx.compose.ui.geometry.Offset(2f, 2f),
+                                                    blurRadius = 6f
+                                                )
+                                            )
+                                        )
+
+                                        if (showSeconds) {
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(
+                                                text = ":$secText",
+                                                color = clockColor.copy(alpha = 0.70f),
+                                                fontSize = (dynamicFontSize * 0.28f).sp,
+                                                fontWeight = FontWeight.Bold,
+                                                fontFamily = clockFontFamily,
+                                                modifier = Modifier.padding(bottom = (dynamicFontSize * 0.08f).dp),
+                                                style = androidx.compose.ui.text.TextStyle(
+                                                    shadow = androidx.compose.ui.graphics.Shadow(
+                                                        color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
+                                                        offset = androidx.compose.ui.geometry.Offset(1f, 1f),
+                                                        blurRadius = 4f
+                                                    )
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            } else if (clockStyle == "stretched") {
+                                // 1. Stretched horizontal layout (scaled vertically, narrower horizontal profile like iOS)
+                                Text(
+                                    text = timeStr,
+                                    color = clockColor,
+                                    fontSize = (dynamicFontSize * 1.15f).sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = clockFontFamily,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier
+                                        .padding(vertical = (maxH * 0.04f).dp), // Padding creates margin bounds due to vertical scale
+                                    style = androidx.compose.ui.text.TextStyle(
+                                        letterSpacing = (-2).sp,
+                                        shadow = androidx.compose.ui.graphics.Shadow(
+                                            color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
+                                            offset = androidx.compose.ui.geometry.Offset(2f, 2f),
+                                            blurRadius = 6f
+                                        )
                                     )
                                 )
-                            )
-
-                            Row(
-                                verticalAlignment = Alignment.Bottom,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
+                            } else {
+                                // 1. Classic horizontal line layout (Expanded & highly polished)
                                 Text(
-                                    text = minText,
+                                    text = timeStr,
                                     color = clockColor,
                                     fontSize = dynamicFontSize.sp,
                                     fontWeight = FontWeight.Bold,
@@ -443,7 +555,7 @@ fun DashboardScreen(
                                     maxLines = 1,
                                     softWrap = false,
                                     style = androidx.compose.ui.text.TextStyle(
-                                        letterSpacing = (-4).sp,
+                                        letterSpacing = (-2).sp,
                                         shadow = androidx.compose.ui.graphics.Shadow(
                                             color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
                                             offset = androidx.compose.ui.geometry.Offset(2f, 2f),
@@ -451,77 +563,84 @@ fun DashboardScreen(
                                         )
                                     )
                                 )
-
-                                if (showSeconds) {
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = ":$secText",
-                                        color = clockColor.copy(alpha = 0.70f),
-                                        fontSize = (dynamicFontSize * 0.28f).sp,
-                                        fontWeight = FontWeight.Bold,
-                                        fontFamily = clockFontFamily,
-                                        modifier = Modifier.padding(bottom = (dynamicFontSize * 0.08f).dp),
-                                        style = androidx.compose.ui.text.TextStyle(
-                                            shadow = androidx.compose.ui.graphics.Shadow(
-                                                color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
-                                                offset = androidx.compose.ui.geometry.Offset(1f, 1f),
-                                                blurRadius = 4f
-                                            )
-                                        )
-                                    )
-                                }
                             }
                         }
-                    } else if (clockStyle == "stretched") {
-                        // 1. Stretched horizontal layout (scaled vertically, narrower horizontal profile like iOS)
-                        Text(
-                            text = timeStr,
-                            color = clockColor,
-                            fontSize = (dynamicFontSize * 1.15f).sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = clockFontFamily,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            softWrap = false,
-                            modifier = Modifier
-                                .graphicsLayer(
-                                    scaleY = 1.65f, // Long elegant vertical stretch
-                                    scaleX = 0.82f  // Narrower horizontally
+
+                        // Overlay drag handles if in edit mode
+                        if (isEditingScale) {
+                            // Scale indicator bubble inside the border
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopCenter)
+                                    .offset(y = (-12).dp)
+                                    .background(Color(0xFF001122).copy(alpha = 0.85f), RoundedCornerShape(4.dp))
+                                    .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = String.format("X: %.2f | Y: %.2f", clockScaleX, clockScaleY),
+                                    color = Color(0xFF00E5FF),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
-                                .padding(vertical = (maxH * 0.04f).dp), // Padding creates margin bounds due to vertical scale
-                            style = androidx.compose.ui.text.TextStyle(
-                                letterSpacing = (-2).sp,
-                                shadow = androidx.compose.ui.graphics.Shadow(
-                                    color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
-                                    offset = androidx.compose.ui.geometry.Offset(2f, 2f),
-                                    blurRadius = 6f
+                            }
+
+                            // Right Handle (drag to adjust X scale)
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .offset(x = 12.dp)
+                                    .size(24.dp)
+                                    .background(Color(0xFF00E5FF), CircleShape)
+                                    .border(2.dp, Color.White, CircleShape)
+                                    .pointerInput(Unit) {
+                                        detectDragGestures { change, dragAmount ->
+                                            change.consume()
+                                            val sensitivity = 150f
+                                            val newScaleX = (clockScaleX + (dragAmount.x / sensitivity)).coerceIn(0.40f, 3.50f)
+                                            viewModel.setClockScaleX(newScaleX)
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowForward,
+                                    contentDescription = "Width adjust",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(12.dp)
                                 )
-                            )
-                        )
-                    } else {
-                        // 1. Classic horizontal line layout (Expanded & highly polished)
-                        Text(
-                            text = timeStr,
-                            color = clockColor,
-                            fontSize = dynamicFontSize.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = clockFontFamily,
-                            textAlign = TextAlign.Center,
-                            maxLines = 1,
-                            softWrap = false,
-                            style = androidx.compose.ui.text.TextStyle(
-                                letterSpacing = (-2).sp,
-                                shadow = androidx.compose.ui.graphics.Shadow(
-                                    color = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.5f),
-                                    offset = androidx.compose.ui.geometry.Offset(2f, 2f),
-                                    blurRadius = 6f
+                            }
+
+                            // Bottom Handle (drag to adjust Y scale)
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .offset(y = 12.dp)
+                                    .size(24.dp)
+                                    .background(Color(0xFF00E5FF), CircleShape)
+                                    .border(2.dp, Color.White, CircleShape)
+                                    .pointerInput(Unit) {
+                                        detectDragGestures { change, dragAmount ->
+                                            change.consume()
+                                            val sensitivity = 150f
+                                            val newScaleY = (clockScaleY + (dragAmount.y / sensitivity)).coerceIn(0.40f, 3.50f)
+                                            viewModel.setClockScaleY(newScaleY)
+                                        }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDownward,
+                                    contentDescription = "Height adjust",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(12.dp)
                                 )
-                            )
-                        )
+                            }
+                        }
                     }
 
                     val spacerHeightMultiplier = if (clockStyle == "stretched") 0.06f else 0.03f
-                    Spacer(modifier = Modifier.height((maxH * spacerHeightMultiplier).dp))
+                    Spacer(modifier = Modifier.height(((maxH * spacerHeightMultiplier) + overflowHeightY).dp))
 
                     // 2. Date subtitle
                     Text(
@@ -1004,6 +1123,131 @@ fun DashboardScreen(
                                             fontWeight = FontWeight.Bold
                                         )
                                     }
+                                }
+                            }
+                        }
+
+                        // Custom Scale interactive stretch tuning
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = if (isEnglish) "Draggable Stretch Layout" else "大屏时钟自由几何拉伸",
+                                    color = Color.White.copy(alpha = 0.7f),
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    // Reset scale button
+                                    TextButton(
+                                        onClick = { viewModel.resetClockScale() },
+                                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                                        modifier = Modifier.height(24.dp)
+                                    ) {
+                                        Text(
+                                            text = if (isEnglish) "Reset" else "恢复原始",
+                                            color = Color(0xFF00E5FF),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+
+                                    // Toggle handles switch
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier
+                                            .background(
+                                                if (isEditingScale) Color(0xFF00E5FF).copy(alpha = 0.15f) else Color.White.copy(alpha = 0.05f),
+                                                RoundedCornerShape(6.dp)
+                                            )
+                                            .clickable { isEditingScale = !isEditingScale }
+                                            .padding(horizontal = 8.dp, vertical = 3.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = if (isEditingScale) Icons.Default.CheckCircle else Icons.Default.Add,
+                                            contentDescription = null,
+                                            tint = if (isEditingScale) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.4f),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = if (isEnglish) "Drag Handles" else "手势辅助线",
+                                            color = if (isEditingScale) Color(0xFF00E5FF) else Color.White.copy(alpha = 0.7f),
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                }
+                            }
+
+                            // Horizontal Stretch Slider
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = if (isEnglish) "Width Factor (Scale X)" else "横向无级比例 (宽)",
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 10.sp
+                                    )
+                                    Text(
+                                        text = String.format("%.2fx", clockScaleX),
+                                        color = Color(0xFF00E5FF),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Box(modifier = Modifier.height(28.dp), contentAlignment = Alignment.Center) {
+                                    Slider(
+                                        value = clockScaleX,
+                                        onValueChange = { viewModel.setClockScaleX(it) },
+                                        valueRange = 0.4f..3.0f,
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = Color(0xFF00E5FF),
+                                            activeTrackColor = Color(0xFF00E5FF),
+                                            inactiveTrackColor = Color.White.copy(alpha = 0.2f)
+                                        )
+                                    )
+                                }
+                            }
+
+                            // Vertical Stretch Slider
+                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(
+                                        text = if (isEnglish) "Height Factor (Scale Y)" else "纵向无级比例 (高)",
+                                        color = Color.White.copy(alpha = 0.5f),
+                                        fontSize = 10.sp
+                                    )
+                                    Text(
+                                        text = String.format("%.2fx", clockScaleY),
+                                        color = Color(0xFF00E5FF),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                Box(modifier = Modifier.height(28.dp), contentAlignment = Alignment.Center) {
+                                    Slider(
+                                        value = clockScaleY,
+                                        onValueChange = { viewModel.setClockScaleY(it) },
+                                        valueRange = 0.4f..3.0f,
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = Color(0xFF00E5FF),
+                                            activeTrackColor = Color(0xFF00E5FF),
+                                            inactiveTrackColor = Color.White.copy(alpha = 0.2f)
+                                        )
+                                    )
                                 }
                             }
                         }

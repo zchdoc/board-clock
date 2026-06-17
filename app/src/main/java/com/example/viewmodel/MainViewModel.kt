@@ -91,6 +91,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _clockFont = MutableStateFlow(prefs.getString("clock_font", "serif") ?: "serif")
     val clockFont: StateFlow<String> = _clockFont.asStateFlow()
 
+    private val _clockScaleX = MutableStateFlow(prefs.getFloat("clock_scale_x", 1.0f))
+    val clockScaleX: StateFlow<Float> = _clockScaleX.asStateFlow()
+
+    private val _clockScaleY = MutableStateFlow(prefs.getFloat("clock_scale_y", 1.06f)) // slightly stretched default vertical or horizontal looks nice
+    val clockScaleY: StateFlow<Float> = _clockScaleY.asStateFlow()
+
     private val _timeOffsetMs = MutableStateFlow(prefs.getLong("time_offset_ms", 0L))
     val timeOffsetMs: StateFlow<Long> = _timeOffsetMs.asStateFlow()
 
@@ -194,6 +200,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setClockFont(font: String) {
         _clockFont.value = font
         prefs.edit().putString("clock_font", font).apply()
+    }
+
+    fun setClockScaleX(scale: Float) {
+        _clockScaleX.value = scale
+        prefs.edit().putFloat("clock_scale_x", scale).apply()
+    }
+
+    fun setClockScaleY(scale: Float) {
+        _clockScaleY.value = scale
+        prefs.edit().putFloat("clock_scale_y", scale).apply()
+    }
+
+    fun resetClockScale() {
+        _clockScaleX.value = 1.0f
+        _clockScaleY.value = 1.0f
+        prefs.edit().putFloat("clock_scale_x", 1.0f).putFloat("clock_scale_y", 1.0f).apply()
     }
 
     fun setCustomTime(hour: Int, minute: Int, second: Int) {
