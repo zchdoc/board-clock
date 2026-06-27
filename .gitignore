@@ -13,3 +13,6 @@ build
 local.properties
 .env
 debug.keystore
+.gradle_home
+
+*.apk
