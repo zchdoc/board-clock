@@ -665,11 +665,11 @@ fun DashboardScreen(
                 }
             }
 
-            // Bottom control actions panel (Clearly visible stylized buttons, 50.dp height for large touch target)
+            // Top control actions panel (Moved to top to prevent overlap with Android bottom navigation buttons)
             Box(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = if (showColorTunePanel) 140.dp else 24.dp)
+                    .align(Alignment.TopCenter)
+                    .padding(top = 24.dp)
                     .padding(horizontal = 16.dp)
             ) {
                 Row(
