@@ -90,27 +90,24 @@
 
 ### 📶 部署安装至开发板 (无线 ADB over Wi-Fi)
 
-为了方便您将编译出的 APK 部署到开发板上，项目根目录下额外提供了一键 Wi-Fi 连接调试工具。它会自动记忆您上次输入的 IP，并支持在开发板重启时通过 USB 自动激活无线端口。
+为了方便您将编译出的 APK 部署到开发板上，项目根目录下提供了**一键无线连接**与**一键无线安装**工具。
 
 #### 🍏 macOS / Linux 用户
-脚本文件：[adb_wifi_connect.sh](file:///Users/zch/Documents/code/board-clock/adb_wifi_connect.sh)
-1. 在终端运行：
+1. **连接开发板**：
+   在终端运行连接脚本：[adb_wifi_connect.sh](file:///Users/zch/Documents/code/board-clock/adb_wifi_connect.sh)
    ```bash
    ./adb_wifi_connect.sh
    ```
-2. 输入开发板 IP 地址并回车（第二次及以后运行直接回车即可复用上次 IP）。
-3. 如果无线通道已失效或首次连接，脚本会引导您插入 USB 线激活端口，激活后拔掉 USB 即可恢复无线模式。
-4. 连接成功后，直接运行部署命令：
+   *(根据提示输入 IP。如需 USB 激活无线端口，按脚本提示接线即可。)*
+2. **一键部署安装**：
+   连接成功后，在终端运行安装脚本：[install_apk.sh](file:///Users/zch/Documents/code/board-clock/install_apk.sh)
    ```bash
-   adb install -r dist/board-clock-debug-latest.apk
+   ./install_apk.sh
    ```
+   *(脚本会自动检查无线连接状态及最新的 APK，并自动完成无线推送安装。)*
 
 #### 💻 Windows 用户
-脚本文件：[adb_wifi_connect.bat](file:///Users/zch/Documents/code/board-clock/adb_wifi_connect.bat)
-1. 双击运行 `adb_wifi_connect.bat` 或在 CMD 命令行中运行。
-2. 根据提示输入或回车复用 IP 地址。
-3. 按照提示即可一键激活并无线连接开发板。
-4. 连接成功后，在命令行中执行安装：
-   ```cmd
-   adb install -r dist/board-clock-debug-latest.apk
-   ```
+1. **连接开发板**：
+   双击运行或在 CMD 命令行中运行连接脚本：[adb_wifi_connect.bat](file:///Users/zch/Documents/code/board-clock/adb_wifi_connect.bat)
+2. **一键部署安装**：
+   连接成功后，双击运行或在命令行中运行安装脚本：[install_apk.bat](file:///Users/zch/Documents/code/board-clock/install_apk.bat)
